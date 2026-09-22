@@ -27,9 +27,9 @@ The second response matters as much as the first. A confidently wrong exam date 
 
 ## Project Status
 
-📋 **Planning complete — implementation not yet started.**
+📋 **Planning complete — implementation starts at M1.**
 
-Architecture, requirements, grounding strategy, security model, evaluation strategy, and cost strategy are documented. Two decisions are outstanding before implementation begins — see [project-plan.md §7](docs/project-plan.md).
+Architecture, requirements, grounding strategy, security model, evaluation strategy, and cost strategy are documented, and all stack decisions are settled. Next up: the ingestion pipeline (M1) — see [project-plan.md](docs/project-plan.md).
 
 ## How It Works
 
@@ -74,12 +74,13 @@ These are conceptually separate and must not blur:
 
 - [ADR-002](docs/decisions/ADR-002-rag-over-finetuning.md) — RAG, not fine-tuning
 - [ADR-003](docs/decisions/ADR-003-foundry-runtime-boundary.md) — Foundry is the runtime; Claude Code is development-only
-- [ADR-004](docs/decisions/ADR-004-vector-store.md) — Supabase pgvector *(proposed)*
+- [ADR-004](docs/decisions/ADR-004-vector-store.md) — Supabase pgvector
 - [ADR-005](docs/decisions/ADR-005-document-content-is-untrusted.md) — Document content is untrusted data
 - [ADR-006](docs/decisions/ADR-006-three-gate-grounding.md) — Three-gate grounding
-- [ADR-007](docs/decisions/ADR-007-backend-stack.md) — Backend stack *(proposed)*
+- [ADR-007](docs/decisions/ADR-007-backend-stack.md) — Python + FastAPI backend
 - [ADR-008](docs/decisions/ADR-008-citation-granularity.md) — Page-level citations
 - [ADR-009](docs/decisions/ADR-009-single-pass-no-agents.md) — Single-pass, no agent loop
+- [ADR-010](docs/decisions/ADR-010-synthetic-first-sample-data.md) — Synthetic sample data first
 
 ## Repository Structure
 
@@ -100,17 +101,28 @@ StudentOS/
 └── docs/                Documentation and ADRs
 ```
 
+## Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React + TypeScript + Vite |
+| Backend | Python + FastAPI |
+| Database & vectors | Supabase Postgres + pgvector |
+| Auth & storage | Supabase |
+| Models | Microsoft Foundry (chat + embeddings) |
+
 ## Setup
 
-⚠️ Setup instructions are pending the backend stack decision ([ADR-007](docs/decisions/ADR-007-backend-stack.md)).
+⚠️ Implementation has not started. Setup instructions will be filled in during M1.
 
-Once confirmed, setup will be:
+The shape will be:
 
 1. Clone the repository
-2. Install dependencies
-3. Copy `.env.example` to `.env` and fill in your own values
-4. Run database migrations
-5. Start the backend and frontend
+2. Create a virtual environment and install backend dependencies
+3. Install frontend dependencies
+4. Copy `.env.example` to `.env` and fill in your own values
+5. Run database migrations against your Supabase project
+6. Start the backend and frontend
 
 **Never commit `.env`.** It is gitignored. `.env.example` contains variable names and placeholders only.
 

@@ -1,7 +1,8 @@
 # ADR-007: Backend Language and Framework
 
-**Status:** **Proposed — requires confirmation before implementation**
+**Status:** Accepted
 **Date:** 2026-09-23
+**Confirmed:** 2026-09-23
 **Partially supersedes:** ADR-001, which recorded npm as the package manager on the assumption of a Node backend
 
 ## Context
@@ -12,9 +13,9 @@ The frontend will be React + TypeScript regardless of this decision.
 
 ## Decision
 
-**Proposed: Python with FastAPI for the backend.**
+**Python with FastAPI for the backend.** The frontend remains React + TypeScript.
 
-This requires confirmation because it diverges from the existing scaffolding and from ADR-001.
+This diverges from the existing scaffolding and from ADR-001, which assumed Node.
 
 ## Rationale
 
@@ -34,12 +35,10 @@ This requires confirmation because it diverges from the existing scaffolding and
 
 **Negative:** two languages in the repository (Python backend, TypeScript frontend), so no shared types between them — the API contract must be kept in sync manually or via generated clients from the OpenAPI schema. Contributors must be comfortable in both.
 
-**If rejected in favour of Node/TypeScript:** the architecture is unchanged — only module implementations differ. The cost is weaker PDF tooling and a thinner evaluation ecosystem; the benefit is one language across the stack and shared types. This is a legitimate alternative, which is why the decision is escalated rather than assumed.
-
-**Required follow-up on acceptance:** update `README.md` (currently describes `npm install`), update `.env.example` (currently Node-shaped), and add a note to ADR-001 recording that its package-manager line is superseded.
+**Required follow-up:** `README.md`, `.env.example`, and ADR-001 have been updated to reflect this decision.
 
 ## Alternatives Considered
 
-- **Node.js + Express/Fastify with TypeScript** — one language across the stack, shared types, and consistent with existing scaffolding. Rejected on PDF tooling maturity and evaluation ecosystem, but a defensible choice if the team's TypeScript experience substantially exceeds its Python experience. **That trade-off is the team's to make, which is why this ADR is Proposed.**
+- **Node.js + Express/Fastify with TypeScript** — one language across the stack, shared types, and consistent with the existing scaffolding. Rejected on PDF tooling maturity and evaluation ecosystem. It would have been a defensible choice if the team's TypeScript experience substantially exceeded its Python experience.
 - **Python + Django** — rejected: heavier than needed; no use for the ORM-plus-admin bundle given Supabase.
 - **Python + Flask** — rejected: FastAPI's async support and Pydantic validation are directly useful here.

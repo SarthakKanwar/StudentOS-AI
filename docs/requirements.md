@@ -211,11 +211,8 @@ These are **not** being built, and the reasons are architectural — they should
 - Students and admins are the only actors; no staff/faculty role
 - The demo runs against sample documents we create, not real university records
 
-**Open questions requiring a decision — see §"Decisions Required" in the handover summary:**
+**Resolved 2026-09-23:** backend is Python + FastAPI (ADR-007); vector store is Supabase `pgvector` (ADR-004); sample documents are synthetic first with real documents validated at M6 (ADR-010).
 
-1. Backend language: Python or Node/TypeScript
-2. Vector store: Supabase `pgvector` or Azure AI Search
-3. Whether real university PDFs will be supplied, or we author realistic samples
-4. Deployment target for the demo
+**Still open:** the presentation deadline and team size, which affect scheduling rather than architecture (see `project-plan.md` §7).
 
 > **No assumptions have been made about actual university data.** All sample documents in `sample-data/` will be clearly synthetic and labelled as such.

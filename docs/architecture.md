@@ -405,18 +405,19 @@ GET    /api/health                        no auth
 |---|---|---|
 | Frontend | React + TypeScript + Vite | Recommended |
 | Styling | Tailwind CSS, implementing the Stitch design | Recommended |
-| Backend | **Python + FastAPI** | **Needs decision** (ADR-007) |
+| Backend | Python + FastAPI | Decided (ADR-007) |
 | Database | Supabase Postgres | Decided |
-| Vector store | **Supabase pgvector** | **Needs decision** (ADR-004) |
+| Vector store | Supabase pgvector | Decided (ADR-004) |
 | Auth | Supabase Auth | Decided |
 | File storage | Supabase Storage | Decided |
 | Chat model | Foundry — small/efficient chat model (e.g. GPT-4o-mini class) | Decided (ADR-003) |
 | Embeddings | Foundry — `text-embedding-3-small` class, 1536 dims | Decided |
-| PDF extraction | `pypdf` (Python) / `pdf-parse` (Node) | Follows backend choice |
-| Testing | `pytest` (Python) / `vitest` (Node) | Follows backend choice |
+| PDF extraction | `pypdf` / `pdfplumber` | Decided |
+| Validation | Pydantic — enforces the API and model-response schemas | Decided |
+| Testing | `pytest` (backend), `vitest` (frontend) | Decided |
 | CI | GitHub Actions | Decided |
 
-The two bolded rows are the decisions blocking implementation.
+All stack decisions are now settled; implementation is unblocked.
 
 ---
 

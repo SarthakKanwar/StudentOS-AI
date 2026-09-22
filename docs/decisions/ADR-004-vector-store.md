@@ -1,7 +1,8 @@
 # ADR-004: Use Supabase Postgres with pgvector as the Vector Store
 
-**Status:** **Proposed — requires confirmation before implementation**
+**Status:** Accepted
 **Date:** 2026-09-23
+**Confirmed:** 2026-09-23
 
 ## Context
 
@@ -35,6 +36,6 @@ The realistic options are Supabase `pgvector`, Azure AI Search, or a managed vec
 
 ## Alternatives Considered
 
-- **Azure AI Search** — better hybrid search and a semantic reranker out of the box, and it keeps more of the stack on Azure. Rejected for now on cost and on the index-synchronisation concern. This is the closest alternative and a defensible different choice, which is why this ADR needs explicit confirmation.
+- **Azure AI Search** — better hybrid search and a semantic reranker out of the box, and it keeps more of the stack on Azure. Rejected on cost and on the index-synchronisation concern. This is the closest alternative and remains the documented upgrade path if measured recall@5 at M2 falls short.
 - **Pinecone / Weaviate managed** — rejected: added cost and a second datastore for no benefit at this scale.
 - **In-memory / FAISS on disk** — rejected: no persistence story, and it would not survive a scale-to-zero backend restart.

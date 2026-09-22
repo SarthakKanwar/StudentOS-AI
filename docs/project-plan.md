@@ -253,17 +253,22 @@ If time runs short, cut in this order — the guarantee is never the thing that 
 
 ---
 
-## 7. Decisions Required Before Implementation
+## 7. Decisions
 
-Implementation is blocked on these. Each is discussed in the linked ADR.
+**Resolved 2026-09-23:**
 
-| # | Decision | Recommendation | ADR |
+| # | Decision | Outcome | ADR |
 |---|---|---|---|
-| 1 | Backend language and framework | **Python + FastAPI** | ADR-007 |
-| 2 | Vector store | **Supabase pgvector** | ADR-004 |
-| 3 | Source of sample documents | We author realistic synthetic PDFs unless real ones are supplied | — |
-| 4 | Presentation deadline | Needed to fix the timeline and scope | — |
-| 5 | Team size and roles | Affects parallelisation of M4 against M2/M3 | — |
+| 1 | Backend language and framework | Python + FastAPI | ADR-007 |
+| 2 | Vector store | Supabase pgvector | ADR-004 |
+| 3 | Source of sample documents | Synthetic first, real documents validated at M6 | ADR-010 |
+
+**Still outstanding — these affect scheduling, not architecture, so they do not block M1:**
+
+| # | Decision | Why it is needed |
+|---|---|---|
+| 4 | Presentation deadline | Fixes the timeline and determines whether the §5 scope reductions apply |
+| 5 | Team size and roles | Determines whether M4 (frontend) can run in parallel with M2/M3, which would compress the schedule by ~2 weeks |
 
 ---
 
