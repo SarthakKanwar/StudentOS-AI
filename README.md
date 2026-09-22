@@ -29,7 +29,11 @@ The second response matters as much as the first. A confidently wrong exam date 
 
 📋 **Planning complete — implementation starts at M1.**
 
-Architecture, requirements, grounding strategy, security model, evaluation strategy, and cost strategy are documented, and all stack decisions are settled. Next up: the ingestion pipeline (M1) — see [project-plan.md](docs/project-plan.md).
+Architecture, requirements, grounding strategy, security model, evaluation strategy, and cost strategy are documented, and all stack decisions are settled.
+
+**Runtime environment verified 2026-09-23.** The Foundry deployment (`gpt-5-mini` + `text-embedding-3-small`, region `uaenorth`) has been capability-tested: strict JSON-schema output works, and embeddings return 1536 dimensions. Both prerequisites for the grounding design are confirmed — see [architecture.md §10.1](docs/architecture.md).
+
+Next up: the ingestion pipeline (M1) — see [project-plan.md](docs/project-plan.md).
 
 ## How It Works
 

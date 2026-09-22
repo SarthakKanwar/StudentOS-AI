@@ -125,7 +125,7 @@ It is a pure function of (question, current KB). It makes no judgement about suf
 
 Isolating this makes the model provider swappable and gives one place to enforce prompt discipline.
 
-> **Implementation note:** the exact Azure AI Foundry SDK surface (client construction, deployment naming, structured-output parameters) must be confirmed against current Azure documentation at implementation time. This document specifies the *capabilities* required — a chat completion endpoint supporting system/user role separation and JSON-constrained output, plus an embedding endpoint — not a specific function signature.
+> **Implementation note — VERIFIED 2026-09-23.** The required capabilities were confirmed by live test against the existing deployment, not assumed from documentation. The **Azure OpenAI v1 API surface** is used: `POST {endpoint}/openai/v1/responses` for chat with strict JSON-schema output, and `POST {endpoint}/openai/v1/embeddings` for embeddings, both with `api-version=preview`. See §10.1 for the full verification record.
 
 ### 4.5 Grounding Validator
 
@@ -340,6 +340,7 @@ chunks
 
 chunk_embeddings
   chunk_id → chunks.id · embedding vector(1536) · model_version
+  -- 1536 verified against the live text-embedding-3-small deployment (§10.1)
 
 conversations
   id · user_id → users.id · title · created_at
@@ -436,14 +437,72 @@ GET    /api/health                        no auth
 | Vector store | Supabase pgvector | Decided (ADR-004) |
 | Auth | Supabase Auth | Decided |
 | File storage | Supabase Storage | Decided |
-| Chat model | Foundry — small/efficient chat model (e.g. GPT-4o-mini class) | Decided (ADR-003) |
-| Embeddings | Foundry — `text-embedding-3-small` class, 1536 dims | Decided |
+| Chat model | Foundry — `gpt-5-mini` (2025-08-07), GlobalStandard | **Deployed and verified** (ADR-003, §10.1) |
+| Embeddings | Foundry — `text-embedding-3-small` (v1), Standard, 1536 dims | **Deployed and verified** (§10.1) |
 | PDF extraction | `pypdf` / `pdfplumber` | Decided |
 | Validation | Pydantic — enforces the API and model-response schemas | Decided |
 | Testing | `pytest` (backend), `vitest` (frontend) | Decided |
 | CI | GitHub Actions | Decided |
 
 All stack decisions are now settled; implementation is unblocked.
+
+### 10.1 Verified runtime environment
+
+**Verified 2026-09-23** during Phase 1 readiness review, by live capability test against the existing Azure deployment. These are measured results, not documentation claims.
+
+**Existing Azure environment** (provisioned before this review; nothing was created or modified to perform these tests):
+
+| | |
+|---|---|
+| Subscription | Azure for Students (Chitkara University tenant), Enabled |
+| Foundry resource | `stuos-resource`, kind `AIServices`, SKU S0 |
+| Foundry project | `stuos` (`Microsoft.CognitiveServices/accounts/projects`) |
+| Region | `uaenorth` |
+| Endpoint | `https://stuos-resource.cognitiveservices.azure.com` |
+
+**Model deployments:**
+
+| Deployment | Model | Version | SKU | State |
+|---|---|---|---|---|
+| `gpt-5-mini` | gpt-5-mini | 2025-08-07 | GlobalStandard | Succeeded |
+| `text-embedding-3-small` | text-embedding-3-small | 1 | Standard | Succeeded |
+
+#### Test 1 — Structured output (Gate 2 prerequisite) ✅ VERIFIED
+
+| | |
+|---|---|
+| API surface | Azure OpenAI **v1 Responses API** — `POST {endpoint}/openai/v1/responses?api-version=preview` |
+| Request | `text.format.type = "json_schema"` with `strict: true` |
+| Result | **HTTP 200**, response status `completed` |
+| Returned | `{"answer":"hello"}` — valid JSON, exact schema match |
+| Conclusion | **Strict JSON-schema enforcement is accepted by the deployed `gpt-5-mini`.** |
+
+This was the load-bearing unknown in the readiness review. Gate 2 (`grounding-strategy.md` §4) requires the model to return a schema-constrained object carrying `sufficient`, `answer` and `citations`. That contract is confirmed implementable as specified — **no change to the three-gate grounding design is required.**
+
+#### Test 2 — Embedding dimensions (pgvector prerequisite) ✅ VERIFIED
+
+| | |
+|---|---|
+| API surface | Azure OpenAI **v1 Embeddings API** — `POST {endpoint}/openai/v1/embeddings?api-version=preview` |
+| Input | one short test string |
+| Result | **HTTP 200** |
+| Returned vector length | **1536** |
+| Conclusion | The `embedding vector(1536)` column in §8 matches the live deployment. **No change to the pgvector design is required.** |
+
+#### Authentication
+
+Both tests authenticated with **Microsoft Entra ID bearer tokens**, acquired from the developer's existing Azure CLI login (`az account get-access-token --resource https://cognitiveservices.azure.com`).
+
+**No API key was created, retrieved, or stored**, and no credential was written to any file. This is also the intended production pattern: it maps directly onto managed identity when the backend is deployed, so no key needs to exist at any point. `FOUNDRY_API_KEY` remains in `.env.example` as an alternative for local development only.
+
+#### Scope of these tests
+
+Both tests were **inference calls only**. No Azure resource was created, modified, or deleted; no model was deployed; no resource provider was registered. The Azure resource list and deployment list were re-checked afterwards and were unchanged.
+
+#### Still unverified
+
+- **Per-query cost.** `gpt-5-mini` is a reasoning model and bills internal reasoning at output-token rates. The estimates in `cost-strategy.md` were derived for a non-reasoning GPT-4o-mini-class model and do not describe this deployment. They must be re-derived from measured usage once M3 runs real grounded-answering prompts — a single trivial probe is not a basis for revising them.
+- **Container Apps prerequisites.** `Microsoft.App`, `Microsoft.ContainerRegistry` and `Microsoft.OperationalInsights` are **NotRegistered** on this subscription. Registration is required before M7 deployment and was deliberately not performed.
 
 ---
 

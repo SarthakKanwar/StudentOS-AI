@@ -5,6 +5,8 @@
 **Budget ceiling:** $100 · **Target spend:** ≤ $50
 
 > **Pricing caveat:** the figures below are order-of-magnitude estimates based on published rates for small chat and embedding models. Cloud pricing changes and varies by region. **Every number here must be confirmed against the Azure pricing calculator for the chosen region before provisioning.** The estimates are used to prove the architecture is affordable by a wide margin — they are not quotations.
+>
+> ⚠️ **Superseded model assumption (noted 2026-09-23).** Every chat-model figure in this document was derived for a **GPT-4o-mini-class, non-reasoning model**. The actual deployed model is **`gpt-5-mini` (2025-08-07)**, which is a *reasoning* model and bills internal reasoning tokens at output rates (`architecture.md` §10.1). **The chat-model costs below therefore do not describe the deployed system.** They have deliberately not been rewritten here, because a single trivial capability probe is not a basis for new estimates. They must be re-derived from measured token usage on representative grounded-answering prompts once M3 is running. The embedding and infrastructure figures are unaffected.
 
 ---
 
@@ -22,8 +24,8 @@
 
 | Component | Choice | Billing | Estimated project cost |
 |---|---|---|---|
-| Chat model | Foundry small chat model (GPT-4o-mini class) | Per token | **$5 – 15** |
-| Embedding model | `text-embedding-3-small` class | Per token | **< $1** |
+| Chat model | Foundry — **`gpt-5-mini` (2025-08-07), GlobalStandard** (deployed) | Per token | ⚠️ **pending re-derivation** — see caveat above |
+| Embedding model | Foundry — **`text-embedding-3-small` (v1), Standard** (deployed) | Per token | **< $1** |
 | Database + vector | Supabase free tier (Postgres + pgvector) | Free | **$0** |
 | Auth | Supabase Auth free tier | Free | **$0** |
 | File storage | Supabase Storage free tier (1 GB) | Free | **$0** |
@@ -39,7 +41,9 @@ Comfortably inside the ceiling, with room for re-indexing and repeated evaluatio
 
 ## 3. Per-Query Cost
 
-The dominant recurring cost. Typical grounded query:
+The dominant recurring cost. Typical grounded query.
+
+⚠️ **The rates and the 150-token output estimate below are for a GPT-4o-mini-class model and do not describe `gpt-5-mini`.** A reasoning model emits internal reasoning tokens billed at output rates — the capability probe returned 100 output tokens for an 18-character answer. Treat this table as the original architectural affordability argument, not as a current forecast, until it is re-derived from measured usage at M3.
 
 | Item | Tokens | Rate (approx.) | Cost |
 |---|---|---|---|

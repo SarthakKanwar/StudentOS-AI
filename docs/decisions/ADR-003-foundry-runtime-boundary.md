@@ -29,7 +29,9 @@ The same boundary applies to the other tools: GitHub (source control, developmen
 
 **Positive:** the architecture description is accurate; the model provider is isolated behind one interface; the deployed system has no development-tool dependencies.
 
-**Negative:** we are bound to Foundry's model catalogue and API behaviour for runtime purposes. The exact SDK surface must be verified against current Azure documentation during M1 rather than assumed — `architecture.md` §4.4 specifies the required *capabilities* (role-separated chat completion with JSON-constrained output, plus embeddings) rather than a specific function signature, precisely so that verification is a small task rather than a redesign.
+**Negative:** we are bound to Foundry's model catalogue and API behaviour for runtime purposes.
+
+**Verification (2026-09-23):** the required capabilities have since been confirmed by live test rather than assumed. The Azure OpenAI **v1 API surface** (`/openai/v1/responses` and `/openai/v1/embeddings`, `api-version=preview`) provides both: strict JSON-schema output on the deployed `gpt-5-mini` (2025-08-07), and 1536-dimension vectors from `text-embedding-3-small` (v1). Full record in `architecture.md` §10.1. Writing §4.4 in terms of required *capabilities* rather than a specific function signature is what kept this a small verification task instead of a redesign.
 
 **Enforcement:** no Anthropic SDK in backend dependencies; no Anthropic credentials in runtime configuration; all model calls routed through `backend/foundry/`; the dependency check belongs in the pre-demo security checklist.
 

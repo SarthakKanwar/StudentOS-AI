@@ -33,6 +33,8 @@ Requirements, architecture, grounding strategy, security model, evaluation strat
 
 The ability to turn a PDF into retrievable, cited chunks. No UI, no model call yet.
 
+> **Azure is already provisioned.** A Foundry resource (`stuos-resource`, `uaenorth`) with a `gpt-5-mini` chat deployment and a `text-embedding-3-small` embedding deployment already exists and has been capability-tested (`architecture.md` §10.1). M1 does **not** need to create Azure resources — the embedding work below connects to what is already there.
+
 - Backend skeleton in the chosen language; config loading; health endpoint
 - Supabase project, schema migrations, RLS policies
 - PDF upload → Supabase Storage
@@ -244,7 +246,7 @@ If time runs short, cut in this order — the guarantee is never the thing that 
 | Risk | Impact | Likelihood | Mitigation |
 |---|---|---|---|
 | Retrieval quality insufficient | High | Medium | M2 gates on measured recall@5 before building on top |
-| Foundry SDK differs from assumptions | Medium | Medium | Isolated in one client module; verify against current docs at M1 |
+| ~~Foundry SDK differs from assumptions~~ | — | **Resolved** | Verified 2026-09-23 by live test: v1 Responses API with strict JSON schema, and v1 Embeddings returning 1536 dims, both working against the existing deployment (`architecture.md` §10.1) |
 | Sample documents unrepresentative | High | Medium | Confirm whether real PDFs will be supplied (§7) |
 | Scanned PDFs with no extractable text | Medium | Medium | Detect and reject clearly at ingestion; OCR is out of scope |
 | Supabase free-tier project pauses before demo | High | Low | Wake and verify the day before; on the demo-day checklist |

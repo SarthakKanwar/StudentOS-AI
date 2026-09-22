@@ -103,6 +103,7 @@ Injection resistance is a measured property, not an assumption. The adversarial 
 1. No secret is ever committed. `.gitignore` covers `.env`, `.env.*` (except `.env.example`), `*.pem`, `*.key`.
 2. `.env.example` contains **variable names and placeholder values only** — never a real value, never a real endpoint URL.
 3. Foundry keys exist only in backend environment configuration. They are never sent to the browser, never logged, never included in error responses.
+   - **Preferred: no key at all.** Microsoft Entra ID bearer authentication against the Foundry endpoint was verified working on 2026-09-23 (`architecture.md` §10.1) using the developer's Azure CLI credential, with no API key created or stored. The same mechanism becomes managed identity once the backend is deployed, so in production no Foundry key needs to exist. `FOUNDRY_API_KEY` remains in `.env.example` as a local-development fallback only.
 4. The frontend receives only the Supabase anon key and API base URL — values designed to be public and protected by RLS.
 5. Local development uses `.env`; deployment uses the platform's secret store (Azure Container Apps secrets / App Service settings).
 6. Key rotation: if a key is ever exposed, rotate at the provider first, then update configuration. Revoking beats cleaning git history.

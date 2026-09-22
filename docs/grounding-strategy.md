@@ -90,6 +90,8 @@ otherwise:
 
 The model is required to return structured output with an explicit sufficiency judgement, rather than free text.
 
+> **Capability verified 2026-09-23.** Strict JSON-schema enforcement (`text.format.type = "json_schema"`, `strict: true`) was confirmed working against the deployed `gpt-5-mini` (2025-08-07) via the Azure OpenAI v1 Responses API — HTTP 200, valid JSON, exact schema match. This gate does not rest on an assumption. See `architecture.md` §10.1.
+
 **Required response schema:**
 
 ```json
