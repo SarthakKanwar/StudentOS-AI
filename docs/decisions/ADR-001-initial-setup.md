@@ -1,8 +1,10 @@
 # ADR-001: Initial Project Setup and Structure
 
-**Status:** Accepted  
-**Date:** 2026-09-23  
+**Status:** Accepted (partially superseded)
+**Date:** 2026-09-23
 **Author:** Project Setup
+
+> **Note added 2026-09-23:** decision 6 (npm as package manager) assumed a Node.js backend and is superseded by [ADR-007](ADR-007-backend-stack.md), which proposes Python + FastAPI. The repository structure and environment-configuration decisions recorded here remain in force.
 
 ## Context
 
