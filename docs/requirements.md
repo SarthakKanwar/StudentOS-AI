@@ -87,9 +87,9 @@ Requirements are tagged **[MVP]** (required for the graded deliverable), **[V2]*
 | FR-2.4 | Extracted text is split into overlapping chunks with stable identifiers | MVP |
 | FR-2.5 | Each chunk stores metadata: document id, document title, page number, chunk index, character offsets | MVP |
 | FR-2.6 | Each chunk is embedded and indexed for similarity search | MVP |
-| FR-2.7 | A document is only searchable after an admin marks it **approved** | MVP |
-| FR-2.8 | An admin can list documents with ingestion status (`uploaded` → `processing` → `ready` → `approved`, or `failed`) | MVP |
-| FR-2.9 | An admin can revoke approval; revoked documents immediately stop being retrievable | MVP |
+| FR-2.7 | A document is only searchable once `documents.status = 'approved'`, set by an admin | MVP |
+| FR-2.8 | An admin can list documents with ingestion status. `status` is the single source of truth for retrievability: `uploaded` → `processing` → `ready` → `approved`, or `failed` (see `architecture.md` §6.1) | MVP |
+| FR-2.9 | An admin can revoke approval, moving `status` from `approved` back to `ready`. Revoked documents immediately stop being retrievable, with no re-indexing required | MVP |
 | FR-2.10 | Ingestion failures surface a readable reason (e.g. "scanned PDF — no extractable text") | MVP |
 | FR-2.11 | Re-uploading a document creates a new version rather than silently overwriting | V2 |
 | FR-2.12 | Scanned/image PDFs are OCR-processed | FUT |
@@ -146,7 +146,7 @@ Requirements are tagged **[MVP]** (required for the graded deliverable), **[V2]*
 | NFR-10 | **Scale** | KB size supported | 50 documents / ~2,000 chunks (demo scale) |
 | NFR-11 | **Scale** | Concurrent users | 10 (demo scale) |
 | NFR-12 | **Reliability** | Model/API failure behaviour | Fail closed — show an error, never a fabricated answer |
-| NFR-13 | **Maintainability** | Prompts, thresholds, and chunking params live in version-controlled config, not hardcoded | — |
+| NFR-13 | **Maintainability** | Retrieval thresholds, chunking params, and prompts live in version-controlled config (`config/retrieval.yaml`), never hardcoded and never in `.env` — `.env` is gitignored, so config placed there would not be reproducible | — |
 | NFR-14 | **Privacy** | No student question content sent to any service other than the configured Foundry endpoint and Supabase | — |
 | NFR-15 | **Auditability** | Every answer reconstructible from logs: question, retrieved chunk ids, scores, decision | — |
 | NFR-16 | **Accessibility** | Keyboard navigable; citations readable by screen reader | WCAG 2.1 AA for the chat view |

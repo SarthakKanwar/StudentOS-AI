@@ -16,7 +16,7 @@ The realistic options are Supabase `pgvector`, Azure AI Search, or a managed vec
 
 ## Rationale
 
-**One datastore.** Chunks, their metadata, their embeddings, and the documents' approval status all live in the same database. Retrieval filtering on `approved = true` is a plain SQL `JOIN` rather than an index-synchronisation problem. With a separate vector service, approval state must be mirrored into the index and kept consistent — a real source of bugs, and directly safety-relevant here, since a stale index could serve a revoked document.
+**One datastore.** Chunks, their metadata, their embeddings, and the documents' approval status all live in the same database. Retrieval filtering on `documents.status = 'approved'` is a plain SQL `JOIN` rather than an index-synchronisation problem. With a separate vector service, approval state must be mirrored into the index and kept consistent — a real source of bugs, and directly safety-relevant here, since a stale index could serve a revoked document.
 
 **Cost.** Free tier, $0. Azure AI Search Basic is ~$75/month, which would consume most of the project budget (`cost-strategy.md` §5).
 

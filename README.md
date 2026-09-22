@@ -81,6 +81,8 @@ These are conceptually separate and must not blur:
 - [ADR-008](docs/decisions/ADR-008-citation-granularity.md) — Page-level citations
 - [ADR-009](docs/decisions/ADR-009-single-pass-no-agents.md) — Single-pass, no agent loop
 - [ADR-010](docs/decisions/ADR-010-synthetic-first-sample-data.md) — Synthetic sample data first
+- [ADR-011](docs/decisions/ADR-011-single-status-approval-model.md) — Single-status document approval
+- [ADR-012](docs/decisions/ADR-012-version-controlled-retrieval-config.md) — Version-controlled retrieval config
 
 ## Repository Structure
 
@@ -96,6 +98,8 @@ StudentOS/
 │   ├── grounding/       Gate logic and not-found behaviour
 │   ├── retrieval/       Recall and ranking
 │   └── regression/      Baseline comparisons
+├── config/
+│   └── retrieval.yaml   Thresholds and chunking params (version-controlled)
 ├── scripts/             Ingestion and evaluation scripts
 ├── sample-data/         Synthetic university documents (clearly labelled)
 └── docs/                Documentation and ADRs

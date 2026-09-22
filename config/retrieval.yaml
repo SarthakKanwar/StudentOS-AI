@@ -1,0 +1,51 @@
+# StudentOS — retrieval, chunking and grounding configuration
+#
+# This file is VERSION CONTROLLED on purpose (requirements.md NFR-13).
+# Evaluation runs record a snapshot of it, so any score can be traced back
+# to the exact settings that produced it (evaluation.md section 5).
+#
+# Secrets and deployment-specific values do NOT belong here — those live in
+# .env, which is gitignored. Nothing in this file is sensitive.
+
+# ── Chunking ──────────────────────────────────────────────────────────
+# How documents are split before embedding. Changing anything here requires
+# re-ingesting the corpus and re-running threshold calibration.
+chunking:
+  chunk_size_tokens: 800
+  chunk_overlap_tokens: 150
+
+# ── Retrieval ─────────────────────────────────────────────────────────
+# top_k:               chunks fetched from the index before filtering
+# max_context_chunks:  chunks actually sent to the model (cost driver)
+retrieval:
+  top_k: 8
+  max_context_chunks: 5
+
+# ── Grounding thresholds (Gate 1) ─────────────────────────────────────
+# tau_min:     minimum cosine similarity for the single best chunk.
+#              Below this, the system returns "not found" WITHOUT calling
+#              the chat model at all.
+# tau_support: minimum similarity for a chunk to count as supporting
+#              evidence.
+#
+# WARNING: the values below are UNCALIBRATED starting points, not findings.
+# Similarity distributions depend on the embedding model and the corpus, so
+# a threshold copied from elsewhere is meaningless. These must be calibrated
+# against our own evaluation set before the demo — see the procedure in
+# grounding-strategy.md section 7.
+grounding:
+  tau_min: 0.35
+  tau_support: 0.30
+
+# ── Calibration record ────────────────────────────────────────────────
+# Updated whenever thresholds are calibrated. Keeping the provenance here
+# means a future reader can tell whether the numbers above were measured
+# or guessed.
+calibration:
+  status: uncalibrated
+  calibrated_on: null      # date of the calibration run
+  corpus: null             # which document set it was calibrated against
+  embedding_model: null    # calibration is only valid for one embedding model
+  notes: >
+    Initial values set during planning. No calibration run has been
+    performed yet. Do not present these numbers as validated.

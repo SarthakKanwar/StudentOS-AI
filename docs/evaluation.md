@@ -177,7 +177,7 @@ Produces:
 - `reports/eval-<timestamp>.md` — human-readable summary with the metric table
 - A non-zero exit code if any pass/fail gate fails
 
-Each run records the commit SHA and a config snapshot (thresholds, chunk size, model deployment, prompt hash), so a score is always attributable to a specific system state.
+Each run records the commit SHA and a config snapshot — the contents of `config/retrieval.yaml` (thresholds, chunking params) plus the model deployment name and prompt hash — so a score is always attributable to a specific system state. This works precisely because that config is version-controlled rather than sitting in a gitignored `.env`: a reviewer can check out the commit and reproduce the run.
 
 **Manual review** covers what automation cannot: citation correctness sampling and not-found response tone. ~20 sampled responses per milestone.
 

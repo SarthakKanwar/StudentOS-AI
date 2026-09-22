@@ -107,7 +107,7 @@ It is the sole trust boundary. Nothing downstream of it is trusted; nothing upst
 **Owns:** turning a question into candidate passages.
 
 - Embeds the question
-- Runs vector similarity search over **approved** chunks only
+- Runs vector similarity search over chunks whose document has `status = 'approved'` only
 - Runs keyword search in parallel and fuses the rankings (hybrid retrieval)
 - Returns the top-K chunks with scores and full metadata
 
@@ -179,7 +179,7 @@ This is the path every student question takes.
    │    Vector search  ─┐                      │
    │                    ├─ fuse (RRF) → top-K  │
    │    Keyword search ─┘                      │
-   │    Filter: approved documents only        │
+   │    Filter: status = 'approved' only       │
    └────┬─────────────────────────────────────┘
         │
    ┌────▼─────────────────────────────────────┐
@@ -271,7 +271,31 @@ Three properties worth defending in the presentation:
 
 **Why the approval gate exists:** it is the mechanism that makes "approved university documents" a real guarantee rather than a slogan. Ingestion is mechanical; approval is a human accepting responsibility for the content. It is also the injection kill-switch — a flagged document is quarantined until a person looks at it.
 
-**Revocation** flips `approved` to false and takes effect on the next query, with no re-indexing required.
+### 6.1 Document status — the single source of truth
+
+`documents.status` is the **only** field that determines whether a document is retrievable. There is no separate `approved` boolean; a second representation of the same fact would be two things to keep in sync, and this is the most safety-critical flag in the system.
+
+| Status | Meaning | Retrievable? |
+|---|---|---|
+| `uploaded` | File stored, not yet processed | No |
+| `processing` | Extraction / chunking / embedding in progress | No |
+| `ready` | Fully indexed, awaiting admin approval | No |
+| `approved` | Admin has approved it | **Yes** |
+| `failed` | Ingestion failed; `error_message` explains why | No |
+
+**Legal transitions:**
+
+```
+uploaded → processing → ready → approved
+                ↓         ↑        │
+             failed       └────────┘   (revoke)
+```
+
+- **Approval:** `ready → approved`, also setting `approved_by` and `approved_at`.
+- **Revocation:** `approved → ready`. The document stays fully indexed — only its retrievability changes, so re-approving is instant and requires no re-indexing.
+- `approved_by` and `approved_at` are **metadata only**. They record who approved it and when; they never determine retrievability. They are retained after revocation as an audit trail of the prior approval.
+
+**Every retrieval query filters on `status = 'approved'`.** Gate 3 re-checks the same condition at validation time (`grounding-strategy.md` §5, check 4), which is what makes revocation take effect immediately rather than at the next re-index.
 
 ---
 
@@ -304,7 +328,9 @@ users (Supabase Auth)
 
 documents
   id · title · original_filename · storage_path · file_hash
-  uploaded_by → users.id · status · approved · approved_by · approved_at
+  uploaded_by → users.id
+  status          -- uploaded|processing|ready|approved|failed  (SOURCE OF TRUTH, see 6.1)
+  approved_by · approved_at   -- audit metadata only; never gates retrieval
   page_count · injection_risk_flag · error_message · created_at
 
 chunks

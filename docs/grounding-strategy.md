@@ -73,14 +73,14 @@ otherwise:
         → proceed to model
 ```
 
-**Starting thresholds — to be calibrated, not assumed:**
+**Starting thresholds — to be calibrated, not assumed.** These live in version-controlled `config/retrieval.yaml`, never in `.env`, so that every evaluation run is reproducible (NFR-13):
 
-| Parameter | Initial value | Meaning |
-|---|---|---|
-| `TAU_MIN` | 0.35 | Minimum cosine similarity for the best chunk |
-| `TAU_SUPPORT` | 0.30 | Threshold for counting as supporting evidence |
-| `TOP_K` | 8 | Chunks retrieved before filtering |
-| `MAX_CONTEXT_CHUNKS` | 5 | Chunks actually sent to the model |
+| Parameter | `config/retrieval.yaml` key | Initial value | Meaning |
+|---|---|---|---|
+| `TAU_MIN` | `grounding.tau_min` | 0.35 | Minimum cosine similarity for the best chunk |
+| `TAU_SUPPORT` | `grounding.tau_support` | 0.30 | Threshold for counting as supporting evidence |
+| `TOP_K` | `retrieval.top_k` | 8 | Chunks retrieved before filtering |
+| `MAX_CONTEXT_CHUNKS` | `retrieval.max_context_chunks` | 5 | Chunks actually sent to the model |
 
 > **These numbers are starting points, not findings.** Cosine similarity distributions depend on the embedding model and the corpus; a threshold copied from a blog post is meaningless. They must be calibrated against our own evaluation set before the demo — see §7. Quoting an uncalibrated threshold as if it were validated would be dishonest in the presentation.
 
@@ -151,13 +151,13 @@ Deterministic post-processing. **This is the gate that makes the guarantee real*
 | 1 | `citations` is non-empty | → NOT FOUND |
 | 2 | Every `chunk_id` exists in the set actually retrieved for this query | → drop invalid ids |
 | 3 | At least one valid citation survives check 2 | → NOT FOUND |
-| 4 | Every cited chunk belongs to a currently **approved** document | → drop, then re-apply check 3 |
+| 4 | Every cited chunk belongs to a document whose `status = 'approved'` right now | → drop, then re-apply check 3 |
 | 5 | `answer` is non-empty after trimming | → NOT FOUND |
 | 6 | `answer` does not contain refusal-like phrasing while claiming sufficiency | → NOT FOUND |
 
 Check 2 is the important one. A model that hallucinates an answer will typically also hallucinate or misattribute a chunk id — and an id that was never in the retrieved set is caught by a set-membership test. There is no prompt-level attack that defeats a set-membership test in backend code.
 
-Check 4 closes a real race: an admin revoking a document between retrieval and validation. Revocation must take effect immediately, so approval is re-checked at the last moment.
+Check 4 closes a real race: an admin revoking a document between retrieval and validation. Revocation sets `status` back to `ready` (`architecture.md` §6.1), and because that field is re-read at the last moment, the change takes effect immediately rather than at the next re-index.
 
 **Planned V2 — Gate 4, entailment check:** split the answer into claim sentences and verify each is supported by its cited chunk, via a cheap second model call or string/semantic overlap. Deferred because it roughly doubles per-query cost and the first three gates should be measured before adding a fourth.
 
@@ -202,7 +202,7 @@ Thresholds must be derived from data before the demo:
 2. Run retrieval only, recording `top_score` for every question.
 3. Plot the two score distributions (answerable vs. unanswerable).
 4. Choose `TAU_MIN` at the point that **eliminates false answers first**, accepting some false refusals. The cost function is asymmetric — a wrong answer is far worse than a missed one.
-5. Record the chosen value, the date, and the corpus it was calibrated on in `config/retrieval.yaml`.
+5. Record the chosen values in `config/retrieval.yaml`, and fill in its `calibration:` block — `status`, `calibrated_on`, `corpus`, and `embedding_model`. That block is what tells a future reader whether the thresholds were measured or guessed; it currently reads `uncalibrated`.
 6. Re-calibrate whenever the embedding model or chunking parameters change.
 
 If the distributions overlap heavily, that is a *retrieval quality* problem (chunking, hybrid search, embedding choice) and must not be papered over by moving the threshold.

@@ -108,12 +108,15 @@ Injection resistance is a measured property, not an assumption. The adversarial 
 6. Key rotation: if a key is ever exposed, rotate at the provider first, then update configuration. Revoking beats cleaning git history.
 7. CI uses GitHub Actions secrets. Workflows triggered by forked pull requests do not receive them.
 
+8. `.env` holds **secrets and deployment-specific values only**. Non-sensitive tuning — retrieval thresholds, chunking parameters — belongs in version-controlled `config/retrieval.yaml` (NFR-13). Keeping the two separate means the security-sensitive file stays short and easy to audit, and the reproducibility-sensitive file stays in git.
+
 **Required variables** (names only):
 
 ```
-FOUNDRY_ENDPOINT · FOUNDRY_API_KEY · FOUNDRY_CHAT_DEPLOYMENT · FOUNDRY_EMBEDDING_DEPLOYMENT
+FOUNDRY_ENDPOINT · FOUNDRY_API_KEY · FOUNDRY_API_VERSION
+FOUNDRY_CHAT_DEPLOYMENT · FOUNDRY_EMBEDDING_DEPLOYMENT
 SUPABASE_URL · SUPABASE_ANON_KEY · SUPABASE_SERVICE_ROLE_KEY
-APP_ENV · LOG_LEVEL · CORS_ALLOWED_ORIGINS
+APP_ENV · PORT · LOG_LEVEL · CORS_ALLOWED_ORIGINS
 ```
 
 `SUPABASE_SERVICE_ROLE_KEY` bypasses RLS and is backend-only. It must never appear in frontend configuration or in any `VITE_`-prefixed variable, since Vite inlines those into the client bundle.
