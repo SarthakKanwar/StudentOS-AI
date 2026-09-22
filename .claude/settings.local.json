@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\HP\\\\Desktop\\\\StudentsOs\" -Force)",
+      "Bash(git -C \"C:\\\\Users\\\\HP\\\\Desktop\\\\StudentsOs\" status)",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'chore: initialize StudentOS project *)"
+    ]
+  }
+}
