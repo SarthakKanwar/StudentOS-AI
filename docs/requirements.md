@@ -90,9 +90,9 @@ Requirements are tagged **[MVP]** (required for the graded deliverable), **[V2]*
 | FR-2.7 | A document is only searchable once `documents.status = 'approved'`, set by an admin | MVP |
 | FR-2.8 | An admin can list documents with ingestion status. `status` is the single source of truth for retrievability: `uploaded` → `processing` → `ready` → `approved`, or `failed` (see `architecture.md` §6.1) | MVP |
 | FR-2.9 | An admin can revoke approval, moving `status` from `approved` back to `ready`. Revoked documents immediately stop being retrievable, with no re-indexing required | MVP |
-| FR-2.10 | Ingestion failures surface a readable reason (e.g. "scanned PDF — no extractable text") | MVP |
+| FR-2.10 | Ingestion failures surface a readable reason (e.g. "OCR returned no usable text") | MVP |
 | FR-2.11 | Re-uploading a document creates a new version rather than silently overwriting | V2 |
-| FR-2.12 | Scanned/image PDFs are OCR-processed | FUT |
+| FR-2.12 | Scanned/image PDFs are OCR-processed | **DONE** |
 | FR-2.13 | DOCX, HTML, and spreadsheet ingestion | FUT |
 
 ### FR-3 — Grounding & Safety
@@ -168,13 +168,14 @@ The MVP is the smallest system that credibly demonstrates the core guarantee.
 7. Evaluation script covering all five test categories
 8. Deployed and demonstrable end-to-end
 
-**Deliberately excluded from MVP:** streaming, multi-turn context resolution, OCR, non-PDF formats, document versioning, feedback capture, per-course scoping, analytics dashboards.
+**Deliberately excluded from MVP:** streaming, multi-turn context resolution, non-PDF formats, document versioning, feedback capture, per-course scoping, analytics dashboards.
+
+*(OCR was excluded from the original MVP scope and has since been implemented as a fallback — see FR-2.12.)*
 
 ---
 
 ## 6. Future Features (Post-MVP, Not This Term)
 
-- OCR for scanned documents
 - Multi-format ingestion (DOCX, HTML, XLSX)
 - Per-course / per-cohort document visibility
 - Conversation memory and clarifying-question flows

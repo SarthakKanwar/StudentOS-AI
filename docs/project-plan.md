@@ -249,7 +249,7 @@ If time runs short, cut in this order — the guarantee is never the thing that 
 | Retrieval quality insufficient | High | Medium | M2 gates on measured recall@5 before building on top |
 | ~~Foundry SDK differs from assumptions~~ | — | **Resolved** | Verified 2026-09-23 by live test: v1 Responses API with strict JSON schema, and v1 Embeddings returning 1536 dims, both working against the existing deployment (`architecture.md` §10.1) |
 | Sample documents unrepresentative | High | Medium | Confirm whether real PDFs will be supplied (§7) |
-| Scanned PDFs with no extractable text | Medium | Medium | Detect and reject clearly at ingestion; OCR is out of scope |
+| Scanned PDFs with no extractable text | Medium | Medium | **Resolved.** OCR fallback added: a PDF with no text layer is read page by page via Azure AI Document Intelligence and enters the existing pipeline. A document OCR cannot read still fails with a readable reason |
 | Supabase free-tier project pauses before demo | High | Low | Wake and verify the day before; on the demo-day checklist |
 | Threshold tuned to the eval set (overfitting) | Medium | Medium | Hold out a portion of questions; report on held-out data |
 | Scope creep toward a general chatbot | High | Medium | `requirements.md` §7 is explicit; refusal is a feature |

@@ -49,7 +49,9 @@ The refusal is the product. A confidently wrong exam date is worse than no answe
 | **Honest not-found** | A designed refusal state showing which gate stopped the query — not an error box. |
 | **PDF ingestion pipeline** | Validation, page-preserving extraction, token-based chunking, embedding, storage. |
 | **OCR fallback** | A scanned PDF with no text layer is read via OCR, page by page, and enters the same pipeline. Documents with a text layer never touch OCR. |
-| **Admin console** | Upload, ingestion progress, document library, approve/revoke, status tracking. |
+| **Hybrid retrieval** | Semantic search fused with keyword search, so exact identifiers — course codes, regulation numbers, values in a table — are found as reliably as paraphrase. |
+| **Original file access** | The uploaded PDF is preserved and can be opened: any document for an admin, approved documents only for a student. |
+| **Admin console** | Upload, ingestion progress, document library, view, approve/revoke, delete, status tracking. |
 | **Student workspace** | Question composer, retrieval progress, cited answers, source expansion, history. |
 | **Fail-closed design** | An upstream failure degrades to a refusal, never to an unsupported answer. |
 
@@ -65,6 +67,7 @@ The refusal is the product. A confidently wrong exam date is worse than no answe
 | **Answer model** | `gpt-5-mini` (Responses API, strict JSON schema) |
 | **Embedding model** | `text-embedding-3-small` (1536 dimensions) |
 | **Approach** | RAG — retrieval-augmented generation, single-pass, no agent loop |
+| **Retrieval** | Hybrid — dense cosine fused with SQLite FTS5 keyword search by Reciprocal Rank Fusion |
 | **Storage** | SQLite (local prototype storage behind a swappable store interface) |
 | **PDF processing** | pypdf |
 | **OCR (scanned PDFs)** | Azure AI Document Intelligence `prebuilt-read` — fallback only, on the same AIServices resource |
@@ -243,7 +246,7 @@ The full document lifecycle in one view: **approved** documents with a *Revoke* 
 
 **Document ingestion.** A PDF is validated by content sniffing (not file extension) and rejected if encrypted, then split page by page so page numbers survive. If the PDF carries no text layer — a scan — it falls back to OCR, which returns text per page and enters the identical downstream pipeline; nothing after extraction knows or cares which path the text came from. Text is chunked at 800 tokens with 150 tokens of overlap using `tiktoken`/`cl100k_base`, and each chunk gets a deterministic ID scoped to its document.
 
-**Retrieval.** The student's question is embedded with the same model used for the documents, then compared by cosine similarity against chunks of **approved documents only**. The top 8 are retrieved and the best 5 are passed to the model.
+**Retrieval.** The student's question is embedded with the same model used for the documents, then compared by cosine similarity against chunks of **approved documents only**. A keyword search runs beside it and the two rankings are fused, because dense embeddings alone under-weight rare literal tokens — a chunk holding a table of ten subjects loses to a long document *about* one of them. The top 8 are retrieved and the best 5 are passed to the model.
 
 **Foundry model.** `gpt-5-mini` is called once — no agent loop — with a strict JSON schema requiring `grounded`, `answer` and `citations`. Retrieved passages appear only in the user message inside explicit delimiters, never in the system prompt: document content is treated as untrusted data, not instructions.
 
@@ -344,7 +347,8 @@ External services are mocked in unit tests — no Azure call is made and no cost
 | **Storage** | SQLite is used for the prototype. A Postgres + pgvector schema exists in `migrations/` but has **not** been applied; the store interface allows swapping it in later. |
 | **OCR accuracy** | Scanned PDFs are now read via OCR, but OCR output is inherently lower-confidence than an embedded text layer. Accuracy has not been measured against a labelled set, and a poor scan can still fail — explicitly, with a readable reason. |
 | **Authentication** | Browser-local prototype auth only. The admin API endpoints are **not** access-controlled — production hardening is required before any real deployment. |
-| **Threshold calibration** | `tau_min = 0.35` is an unvalidated starting value (`config/retrieval.yaml` records this as `uncalibrated`). It must be calibrated against an evaluation set before results are presented as validated. |
+| **Threshold calibration** | `tau_min = 0.35` and the fusion constant `rrf_k = 5` are unvalidated starting values (`config/retrieval.yaml` records this as `uncalibrated`). Both must be calibrated against an evaluation set before results are presented as validated. |
+| **Conflicting sources** | When two approved documents disagree on a fact, StudentOS refuses rather than picking one. This is working as designed — resolving it is a knowledge-base curation task, not a software change. |
 | **Answer latency** | 15–25 s per question, since `gpt-5-mini` reasons before replying. |
 
 ---
