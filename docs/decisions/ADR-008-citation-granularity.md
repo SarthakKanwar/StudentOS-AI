@@ -20,6 +20,12 @@ More precision means more implementation effort and more that can break.
 
 Chunks store character offsets so finer granularity remains possible later, but character-precise PDF highlighting is out of scope.
 
+**Amendment 2026-09-23 — page ranges.** Chunks may span a page boundary, and store `page_start` and `page_end` rather than a single `page_number` (`architecture.md` §8.1). Where the two differ, the citation renders the **range** — *"Pages 3–4"* — rather than picking one. This does not change the granularity decision: citations remain page-level. It prevents a citation from pointing at a page that does not contain the quoted text, which would be worse than either alternative, because a student who checks and finds nothing loses trust in every other citation.
+
+The document name shown is `documents.title` (the human-readable title), never `original_filename`. A filename reflects whoever saved the file and is often meaningless to a reader — "exam_dates_v2_FINAL.pdf" is not a verification aid.
+
+`section_label` is optional and frequently NULL; it supplements the page reference when a heading is reliably detected, and is omitted otherwise rather than guessed.
+
 ## Rationale
 
 **The test is verification time.** A citation is useful if a student can confirm it in seconds. `exam_dates.pdf · Page 3` plus the sentence `"CS-402 Computer Networks — 14 Dec 2026, 10:00"` achieves that immediately — often without opening the file at all.

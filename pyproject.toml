@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "studentos"
+version = "0.1.0"
+description = "AI-powered student assistant answering only from approved university documents"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115,<1.0",
+    "uvicorn[standard]>=0.32,<1.0",
+    "pydantic>=2.9,<3.0",
+    "pydantic-settings>=2.6,<3.0",
+    "pyyaml>=6.0,<7.0",
+    "pypdf>=5.0,<6.0",
+    "tiktoken>=0.9,<1.0",
+    "reportlab>=4.0,<5.0",
+    "httpx>=0.27,<1.0",
+    "azure-identity>=1.19,<2.0",
+    "supabase>=2.10,<3.0",
+    "python-multipart>=0.0.9,<1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3,<9.0",
+    "httpx>=0.27,<1.0",
+]
+
+# Only `backend` is an importable package. frontend/, docs/, tests/ and
+# migrations/ are deliberately excluded.
+[tool.setuptools.packages.find]
+include = ["backend*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

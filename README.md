@@ -99,11 +99,13 @@ StudentOS/
 │   ├── retrieval/       Embedding, vector + keyword search, fusion
 │   └── foundry/         Microsoft Foundry client (sole holder of model credentials)
 ├── tests/
+│   ├── ingestion/       Extraction, chunking, page attribution (M1)
 │   ├── grounding/       Gate logic and not-found behaviour
 │   ├── retrieval/       Recall and ranking
 │   └── regression/      Baseline comparisons
+├── migrations/          Database schema SQL (committed)
 ├── config/
-│   └── retrieval.yaml   Thresholds and chunking params (version-controlled)
+│   └── retrieval.yaml   Thresholds, tokenizer and chunking params (version-controlled)
 ├── scripts/             Ingestion and evaluation scripts
 ├── sample-data/         Synthetic university documents (clearly labelled)
 └── docs/                Documentation and ADRs

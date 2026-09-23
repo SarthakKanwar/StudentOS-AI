@@ -76,3 +76,7 @@ coverage/
 tmp/
 temp/
 cache/
+
+# Local demo storage (SQLite fallback when Supabase is not provisioned)
+data/
+*.db

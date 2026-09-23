@@ -84,8 +84,8 @@ Requirements are tagged **[MVP]** (required for the graded deliverable), **[V2]*
 | FR-2.1 | An admin can upload a document (PDF at minimum) | MVP |
 | FR-2.2 | Uploads are validated: file type, size limit, and non-empty extractable text | MVP |
 | FR-2.3 | Text is extracted with page numbers preserved | MVP |
-| FR-2.4 | Extracted text is split into overlapping chunks with stable identifiers | MVP |
-| FR-2.5 | Each chunk stores metadata: document id, document title, page number, chunk index, character offsets | MVP |
+| FR-2.4 | Extracted text is split into overlapping chunks with identifiers in the canonical `c_<short>` format, deterministic **within a single ingestion**. Stability across re-ingestion is explicitly not required in M1 (see `architecture.md` §8.1) | MVP |
+| FR-2.5 | Each chunk stores metadata: document id, document title, **`page_start` and `page_end`** (a chunk may span a page boundary; both are recorded), chunk index, character offsets, and `token_count` measured with tiktoken/`cl100k_base` (see `architecture.md` §8.1) | MVP |
 | FR-2.6 | Each chunk is embedded and indexed for similarity search | MVP |
 | FR-2.7 | A document is only searchable once `documents.status = 'approved'`, set by an admin | MVP |
 | FR-2.8 | An admin can list documents with ingestion status. `status` is the single source of truth for retrievability: `uploaded` → `processing` → `ready` → `approved`, or `failed` (see `architecture.md` §6.1) | MVP |

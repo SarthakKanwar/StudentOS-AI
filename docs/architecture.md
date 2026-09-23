@@ -241,21 +241,23 @@ Three properties worth defending in the presentation:
  UPLOAD          admin uploads PDF → stored in Supabase Storage
     │            record created with status = uploaded
     ▼
- VALIDATE        MIME type is PDF · size ≤ limit · not encrypted
+ VALIDATE        MIME type is PDF (by content) · size ≤ limit · not encrypted
     │            text is extractable (reject scans with a clear reason)
-    │            scan for injection-like patterns → risk flag
+    │            compute SHA-256 file_hash (integrity + dedup)
+    │            [V2] scan for injection-like patterns → injection_risk_flag
     ▼
  EXTRACT         per-page text extraction, page numbers preserved
     │            normalize whitespace, de-hyphenate line breaks
     │            drop repeated headers/footers
     ▼
- CHUNK           ~800 tokens per chunk, ~150 token overlap
+ CHUNK           800 tokens per chunk, 150 token overlap
+    │            tokens counted with tiktoken, cl100k_base encoding
     │            respect paragraph boundaries where possible
-    │            never span a page break without recording both pages
+    │            MAY span a page break — both pages recorded (see 8.1)
     ▼
  METADATA        each chunk carries:
     │              chunk_id · document_id · document_title
-    │              page_number · chunk_index · char offsets
+    │              page_start · page_end · chunk_index · char offsets
     ▼
  EMBED           batch chunks → Foundry embedding model → vectors
     │            store in pgvector column
@@ -307,16 +309,21 @@ A citation is meaningful only if a student can verify it in seconds.
 
 | Field | Example | Purpose |
 |---|---|---|
-| `document_title` | `exam_dates.pdf` | What to open |
-| `page_number` | `3` | Where to look |
-| `section` | `"End-Term Schedule"` | Human-readable anchor when available |
-| `chunk_id` | `c_7f2a…` | Internal verification key |
+| `document_title` | `Autumn 2026 End-Term Exam Schedule` | What to open — `documents.title`, never the raw filename (§8.1) |
+| `page_start` · `page_end` | `3` · `3` (or `3` · `4` when the chunk spans a break) | Where to look |
+| `section` | `"End-Term Schedule"` | Human-readable anchor; **NULL when not reliably detected** (§8.1) |
+| `chunk_id` | `c_7f2a91` | Internal verification key — canonical `c_<short>` format (§8.1) |
 | `excerpt` | `"CS-402 Computer Networks … 14 Dec 2026, 10:00"` | Immediate proof without opening the file |
 | `score` | `0.87` | Retrieval confidence, shown in admin/debug view |
 
 **Granularity:** page-level. Character-precise highlighting inside a PDF is disproportionate effort for this project; page + excerpt is enough for a student to verify in seconds. (ADR-008)
 
-**Rendering contract:** an answer displays a citation chip per distinct source; clicking expands the excerpt. Where a document lacks page structure, `page_number` is null and the section label carries the locating information — the UI must handle this rather than showing "Page null".
+**Rendering contract:** an answer displays a citation chip per distinct source; clicking expands the excerpt.
+
+- When `page_start == page_end`, render a single page: *"Page 3"*.
+- When a chunk spans a break (`page_start != page_end`), render the range: *"Pages 3–4"*. The range is shown rather than one arbitrary page, so a student is never directed to a page that does not contain the quoted text.
+- Where a document lacks page structure, both fields are null and the section label carries the locating information — the UI must handle this rather than showing "Page null".
+- `section` is frequently NULL by design (§8.1) and must degrade gracefully.
 
 ---
 
@@ -327,16 +334,27 @@ users (Supabase Auth)
   id · email · role(student|admin) · created_at
 
 documents
-  id · title · original_filename · storage_path · file_hash
+  id
+  title               -- human-readable document title, shown in citations
+  original_filename   -- the uploaded filename, retained for provenance
+  storage_path
+  file_hash           -- SHA-256 of the uploaded bytes (integrity + dedup, see 8.1)
   uploaded_by → users.id
-  status          -- uploaded|processing|ready|approved|failed  (SOURCE OF TRUTH, see 6.1)
+  status              -- uploaded|processing|ready|approved|failed  (SOURCE OF TRUTH, see 6.1)
   approved_by · approved_at   -- audit metadata only; never gates retrieval
-  page_count · injection_risk_flag · error_message · created_at
+  page_count
+  injection_risk_flag -- column exists from M1; the scanner that sets it is V2 (see 8.1)
+  error_message · created_at
 
 chunks
-  id · document_id → documents.id
-  content · page_number · chunk_index · char_start · char_end
-  section_label · token_count · created_at
+  id                      -- `c_<short>` e.g. c_7f2a91 — canonical format, see 8.1
+  document_id → documents.id
+  content
+  page_start · page_end   -- 1-BASED page numbers; a chunk MAY span a page boundary (see 8.1)
+  chunk_index · char_start · char_end
+  section_label       -- NULLABLE; populated only when reliably detected
+  token_count         -- counted with tiktoken/cl100k_base, per config/retrieval.yaml
+  created_at
 
 chunk_embeddings
   chunk_id → chunks.id · embedding vector(1536) · model_version
@@ -375,6 +393,57 @@ audit_log
 `chunk_embeddings` is split from `chunks` so that re-embedding with a different model does not rewrite content rows, and so that a plain `SELECT` on chunks does not drag 1,536 floats per row.
 
 `retrieval_logs.gate_outcome` is what makes the presentation demo possible — it records *which* gate stopped an answer.
+
+### 8.1 Field semantics
+
+Decisions resolved 2026-09-23, before the M1 schema was written. Each closes an ambiguity that would have been expensive to change after migration.
+
+**`chunks.id` — canonical chunk identifier**
+
+Format: **`c_<short-identifier>`**, for example `c_7f2a91`.
+
+It is **deterministic for a given chunk within a single document ingestion** — the same document ingested with the same configuration produces the same ids in the same run.
+
+Why a short prefixed id rather than a UUID: chunk ids travel into the model prompt as passage labels and come back in the `citations` array, where Gate 3 tests them by set membership (`grounding-strategy.md` §5). A short id costs fewer prompt tokens on every query, and it stays readable when inspecting `retrieval_logs` by eye during the demo — a UUID column is effectively unreadable at a glance. The `c_` prefix makes the id self-describing in logs and in the prompt.
+
+**Stability across re-ingestion is explicitly *not* required in M1.** Re-ingesting a document — after a chunking-parameter change, for instance — may produce entirely new chunk ids, and old `message_citations` rows may therefore stop resolving. This is accepted for the MVP: the knowledge base is admin-curated and small, re-ingestion is rare, and building id stability now would mean version-tracking infrastructure that FR-2.11 has already deferred to V2. Carried forward as an **M6 hardening concern**, not designed around in M1.
+
+**`chunks.page_start` / `chunks.page_end` — page spanning and 1-based numbering**
+
+**Page numbers are stored 1-based.** Page 1 is the first page of the PDF. PDF libraries (`pypdf`, `pdfplumber`) index pages from **0**, so extraction **must add 1 before persisting**. Storing 1-based values means what is in the database is exactly what a student reads in the citation and exactly what they see printed on the page — no off-by-one conversion sits between the database and the UI, and none can be forgotten in one code path while being applied in another.
+
+A chunk **may** span a page boundary, and when it does **both** page numbers are recorded. For a chunk wholly inside one page, `page_start == page_end`.
+
+The alternative — forcing every chunk to stop at a page break — would produce short, semantically truncated chunks whenever a table or paragraph runs across pages, which is exactly where exam schedules tend to live. Splitting on page boundaries would damage retrieval quality to satisfy a storage convenience.
+
+This does **not** relax the page-level citation requirement (ADR-008). A citation still names a page. Where a cited chunk spans pages, the citation renders the range (`pages 3–4`) rather than silently picking one, so a student is never sent to the wrong page.
+
+**`documents.title` vs `documents.original_filename`**
+
+- `title` is the **human-readable document title** — "Autumn 2026 End-Term Exam Schedule". This is what citations display.
+- `original_filename` is the file as uploaded — `exam_dates_v2_FINAL.pdf`. Retained for provenance and admin display; **not** shown to students.
+
+Citations therefore read *"Autumn 2026 End-Term Exam Schedule · Page 3"*, not a filename. A filename is an artefact of whoever saved the file and is often meaningless or misleading to a reader.
+
+**`chunks.section_label` — optional**
+
+NULLABLE. Populated **only when a section or heading is reliably detected**; otherwise NULL. Heading extraction is unreliable across PDF layouts, so a guessed label is worse than none — it would appear in a citation as false precision. The UI must handle NULL (`architecture.md` §7 rendering contract).
+
+**`documents.file_hash` — SHA-256**
+
+SHA-256 of the uploaded file's bytes, used for:
+- **Integrity** — detecting whether a stored file has changed since ingestion.
+- **Deduplication** — identifying a re-upload of a byte-identical document, so an admin can be warned rather than silently creating a duplicate set of chunks.
+
+It is *not* a version identifier. Document versioning is FR-2.11 (V2).
+
+**`documents.injection_risk_flag` — column now, scanner later**
+
+The **column exists from M1** and defaults to false. The **scanner that sets it is deferred to V2** (FR-3.6).
+
+The two are separated deliberately: adding the column now costs nothing and avoids a migration later, while the scanner is pattern-matching that is trivially evaded and therefore never load-bearing (ADR-005). Injection defence in the MVP rests on the architectural layers — role separation, delimiting, constrained output, and Gate 3 citation verification — not on detecting bad documents at upload.
+
+Until the scanner exists, the flag stays false for every document, and the admin approval gate is the human check in the VALIDATE stage.
 
 ---
 
@@ -440,6 +509,7 @@ GET    /api/health                        no auth
 | Chat model | Foundry — `gpt-5-mini` (2025-08-07), GlobalStandard | **Deployed and verified** (ADR-003, §10.1) |
 | Embeddings | Foundry — `text-embedding-3-small` (v1), Standard, 1536 dims | **Deployed and verified** (§10.1) |
 | PDF extraction | `pypdf` / `pdfplumber` | Decided |
+| Tokenizer | `tiktoken`, `cl100k_base` encoding — defines "token" for chunking and `chunks.token_count` | Decided (`config/retrieval.yaml`) |
 | Validation | Pydantic — enforces the API and model-response schemas | Decided |
 | Testing | `pytest` (backend), `vitest` (frontend) | Decided |
 | CI | GitHub Actions | Decided |

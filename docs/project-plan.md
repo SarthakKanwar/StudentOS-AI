@@ -36,14 +36,14 @@ The ability to turn a PDF into retrievable, cited chunks. No UI, no model call y
 > **Azure is already provisioned.** A Foundry resource (`stuos-resource`, `uaenorth`) with a `gpt-5-mini` chat deployment and a `text-embedding-3-small` embedding deployment already exists and has been capability-tested (`architecture.md` §10.1). M1 does **not** need to create Azure resources — the embedding work below connects to what is already there.
 
 - Backend skeleton in the chosen language; config loading; health endpoint
-- Supabase project, schema migrations, RLS policies
+- Supabase project, schema migrations (committed SQL in `migrations/`), RLS policies
 - PDF upload → Supabase Storage
 - Text extraction with page numbers preserved
-- Chunking with overlap and metadata
+- Chunking with overlap and metadata — tokens counted with tiktoken/`cl100k_base`; chunks may span a page break, recording `page_start` and `page_end`
 - Embedding generation via Foundry
 - `pgvector` storage and index
 - Ingestion status tracking and failure reporting
-- Unit tests for chunking and metadata integrity
+- Unit tests for chunking and metadata integrity, in `tests/ingestion/`
 
 **Demonstrable:** a CLI command ingests a sample PDF; the database shows chunks with correct page numbers and embeddings.
 
@@ -121,6 +121,7 @@ The core guarantee, end to end.
 - RLS verification with a second account
 - GitHub Actions CI running unit tests and the adversarial suite
 - Baseline reports committed
+- Re-ingestion hardening review: chunk ids are only deterministic within a single ingestion (`architecture.md` §8.1), so re-indexing a document can orphan historical `message_citations`. Assess the impact and decide whether id stability or citation-repair is warranted — deliberately out of M1 scope.
 
 **Demonstrable:** the full metric table, with the adversarial suite passing 100%.
 
@@ -163,15 +164,15 @@ To be created as issues, grouped by milestone, labelled `milestone:M1`…`M7` pl
 
 **M1 — Ingestion**
 1. Set up backend project skeleton with config loading and `/api/health`
-2. Create Supabase project and author schema migrations
+2. Create Supabase project and author schema migrations as committed SQL in `migrations/`
 3. Write RLS policies for conversations, messages, and documents
 4. Implement PDF upload to Supabase Storage with validation
 5. Implement page-preserving PDF text extraction
-6. Implement paragraph-aware chunking with overlap and metadata
+6. Implement paragraph-aware chunking with overlap and metadata (tiktoken/`cl100k_base`; record `page_start`/`page_end`)
 7. Implement Foundry embedding client with batching
 8. Store embeddings in pgvector and create the index
 9. Implement ingestion status tracking and failure reporting
-10. Unit tests: chunk boundaries, page attribution, metadata integrity
+10. Unit tests in `tests/ingestion/`: chunk boundaries, page attribution (including page-spanning chunks), metadata integrity
 
 **M2 — Retrieval**
 11. Implement question embedding and vector similarity search

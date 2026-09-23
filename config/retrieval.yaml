@@ -10,7 +10,13 @@
 # ── Chunking ──────────────────────────────────────────────────────────
 # How documents are split before embedding. Changing anything here requires
 # re-ingesting the corpus and re-running threshold calibration.
+#
+# tokenizer/encoding define what "token" means everywhere in this file and in
+# chunks.token_count. Without them the sizes below would be ambiguous, and two
+# implementations could chunk the same PDF differently.
 chunking:
+  tokenizer: tiktoken
+  encoding: cl100k_base
   chunk_size_tokens: 800
   chunk_overlap_tokens: 150
 
