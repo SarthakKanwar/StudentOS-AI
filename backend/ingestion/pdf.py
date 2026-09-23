@@ -13,10 +13,29 @@ from .models import ExtractionError
 
 
 def validate_pdf(file_content: bytes) -> None:
-    """Validate that file_content is a readable, unencrypted PDF.
+    """Validate that file_content is a readable, unencrypted PDF with text.
 
     Raises ExtractionError with a user-readable message if validation fails.
     Never logs secrets or file paths.
+
+    The ingestion pipeline calls `validate_pdf_structure` and
+    `has_extractable_text` separately so a text-free PDF can fall back to OCR
+    instead of failing outright. This function keeps the original combined
+    behaviour for callers that want a straight accept/reject.
+    """
+    validate_pdf_structure(file_content)
+
+    if not has_extractable_text(file_content):
+        raise ExtractionError(
+            "No extractable text found; scanned PDFs without OCR cannot be processed"
+        )
+
+
+def validate_pdf_structure(file_content: bytes) -> None:
+    """Every validation except the text check: size, type, encryption, pages.
+
+    Split out so a scanned PDF — structurally valid but with no text layer —
+    can be routed to OCR rather than rejected.
     """
     settings = get_settings()
 
@@ -46,15 +65,24 @@ def validate_pdf(file_content: bytes) -> None:
     if not reader.pages:
         raise ExtractionError("PDF has no pages")
 
-    has_text = False
+
+def has_extractable_text(file_content: bytes) -> bool:
+    """True when at least one page carries an embedded text layer.
+
+    False means the PDF is a scan, which is the only case that triggers OCR.
+    """
+    try:
+        reader = pypdf.PdfReader(BytesIO(file_content), strict=False)
+    except Exception:
+        return False
+
     for page in reader.pages:
-        if page.extract_text().strip():
-            has_text = True
-            break
-    if not has_text:
-        raise ExtractionError(
-            "No extractable text found; scanned PDFs without OCR cannot be processed"
-        )
+        try:
+            if (page.extract_text() or "").strip():
+                return True
+        except Exception:
+            continue
+    return False
 
 
 def extract_text_with_pages(file_content: bytes) -> dict:

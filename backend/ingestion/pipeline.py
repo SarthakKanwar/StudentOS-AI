@@ -11,12 +11,37 @@ from pathlib import Path
 
 from .chunker import chunk_pages
 from .models import Document, ExtractionError
-from .pdf import extract_text_with_pages, validate_pdf
+from .pdf import (
+    extract_text_with_pages,
+    has_extractable_text,
+    validate_pdf_structure,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def ingest_pdf_file(pdf_path: Path, title: str) -> Document:
+def _ocr_pages(file_content: bytes, ocr_client) -> dict:
+    """Run the OCR fallback and return pages in the standard shape.
+
+    Raises ExtractionError so the caller handles it exactly like any other
+    extraction failure — a scanned document that cannot be read becomes
+    `failed` with a readable reason, never an empty `ready` document.
+    """
+    from .ocr import OcrError, get_ocr_client
+
+    client = ocr_client if ocr_client is not None else get_ocr_client()
+    if client is None:
+        raise ExtractionError(
+            "No extractable text found; this is a scanned PDF and OCR is disabled"
+        )
+
+    try:
+        return client.extract_pages(file_content)
+    except OcrError as exc:
+        raise ExtractionError(str(exc)) from exc
+
+
+def ingest_pdf_file(pdf_path: Path, title: str, ocr_client=None) -> Document:
     """Ingest a PDF file end-to-end.
 
     Args:
@@ -45,17 +70,22 @@ def ingest_pdf_file(pdf_path: Path, title: str) -> Document:
     # Create document record with file hash
     doc = Document.from_file(pdf_path, title, file_content)
 
-    # VALIDATE
+    # VALIDATE — structure only. The text check happens next, because a scanned
+    # PDF is structurally fine and should reach OCR rather than be rejected.
     try:
-        validate_pdf(file_content)
+        validate_pdf_structure(file_content)
     except ExtractionError as exc:
         doc.status = "failed"
         doc.error_message = str(exc)
         return doc
 
-    # EXTRACT
+    # EXTRACT — text layer when there is one, OCR only when there is not.
     try:
-        extracted = extract_text_with_pages(file_content)
+        if has_extractable_text(file_content):
+            extracted = extract_text_with_pages(file_content)
+        else:
+            logger.info("no text layer found; falling back to OCR")
+            extracted = _ocr_pages(file_content, ocr_client)
         doc.page_count = extracted["page_count"]
     except ExtractionError as exc:
         doc.status = "failed"
@@ -86,6 +116,7 @@ def ingest_and_store(
     title: str,
     embedder=None,
     repository=None,
+    ocr_client=None,
 ) -> Document:
     """Ingest a PDF and persist it with embeddings.
 
@@ -105,7 +136,8 @@ def ingest_and_store(
     from backend.services.persistence import DocumentRepository, PersistenceError
 
     # Local stages first — cheap, and no cloud resource is touched if they fail.
-    doc = ingest_pdf_file(pdf_path, title)
+    # OCR is the one exception, and it only runs for a PDF with no text layer.
+    doc = ingest_pdf_file(pdf_path, title, ocr_client=ocr_client)
     local_failure = doc.error_message if doc.status == "failed" else None
 
     repository = repository or DocumentRepository()

@@ -123,6 +123,15 @@ class Settings(BaseSettings):
     foundry_embedding_deployment: str
     foundry_api_key: SecretStr | None = None
 
+    # OCR fallback for scanned PDFs. Served by Azure AI Document Intelligence on
+    # the same AIServices resource as the chat and embedding deployments, so no
+    # separate resource or credential is involved. Set OCR_ENABLED=false to turn
+    # the fallback off; scanned PDFs then fail as they did before.
+    ocr_enabled: bool = True
+    ocr_api_version: str = "2024-11-30"
+    ocr_model: str = "prebuilt-read"
+    ocr_timeout_seconds: int = 180
+
     # Supabase — required.
     supabase_url: str
     supabase_anon_key: SecretStr

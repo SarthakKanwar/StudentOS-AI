@@ -48,6 +48,7 @@ The refusal is the product. A confidently wrong exam date is worse than no answe
 | **Page-level citations** | Every answer names the document, page range and supporting excerpt. |
 | **Honest not-found** | A designed refusal state showing which gate stopped the query — not an error box. |
 | **PDF ingestion pipeline** | Validation, page-preserving extraction, token-based chunking, embedding, storage. |
+| **OCR fallback** | A scanned PDF with no text layer is read via OCR, page by page, and enters the same pipeline. Documents with a text layer never touch OCR. |
 | **Admin console** | Upload, ingestion progress, document library, approve/revoke, status tracking. |
 | **Student workspace** | Question composer, retrieval progress, cited answers, source expansion, history. |
 | **Fail-closed design** | An upstream failure degrades to a refusal, never to an unsupported answer. |
@@ -66,6 +67,7 @@ The refusal is the product. A confidently wrong exam date is worse than no answe
 | **Approach** | RAG — retrieval-augmented generation, single-pass, no agent loop |
 | **Storage** | SQLite (local prototype storage behind a swappable store interface) |
 | **PDF processing** | pypdf |
+| **OCR (scanned PDFs)** | Azure AI Document Intelligence `prebuilt-read` — fallback only, on the same AIServices resource |
 | **Tokenization** | tiktoken (`cl100k_base`) |
 | **Authentication (Azure)** | Microsoft Entra ID via `DefaultAzureCredential` — no API key in the repo |
 | **Testing** | pytest |
@@ -233,13 +235,13 @@ The admin console. Documents sit in **Awaiting review** after ingestion and are 
 
 ![StudentOS admin document library](docs/screenshots/admin-documents.png)
 
-The full document lifecycle in one view: **approved** documents with a *Revoke* action, **ready for review** documents with *Approve*, and **failed** ingestions showing the reason. The two failures here are scanned PDFs with no extractable text — surfaced explicitly rather than stored as empty documents (see [Limitations](#limitations--future-scope)).
+The full document lifecycle in one view: **approved** documents with a *Revoke* action, **ready for review** documents with *Approve*, and **failed** ingestions showing the reason. The two failures here are scanned PDFs, captured before OCR support was added — surfaced explicitly rather than stored as empty documents. Re-uploading them now routes them through the OCR fallback.
 
 ---
 
 ## How It Works
 
-**Document ingestion.** A PDF is validated by content sniffing (not file extension), rejected if encrypted or if no text can be extracted, then split page by page so page numbers survive. Text is chunked at 800 tokens with 150 tokens of overlap using `tiktoken`/`cl100k_base`, and each chunk gets a deterministic ID scoped to its document.
+**Document ingestion.** A PDF is validated by content sniffing (not file extension) and rejected if encrypted, then split page by page so page numbers survive. If the PDF carries no text layer — a scan — it falls back to OCR, which returns text per page and enters the identical downstream pipeline; nothing after extraction knows or cares which path the text came from. Text is chunked at 800 tokens with 150 tokens of overlap using `tiktoken`/`cl100k_base`, and each chunk gets a deterministic ID scoped to its document.
 
 **Retrieval.** The student's question is embedded with the same model used for the documents, then compared by cosine similarity against chunks of **approved documents only**. The top 8 are retrieved and the best 5 are passed to the model.
 
@@ -340,7 +342,7 @@ External services are mocked in unit tests — no Azure call is made and no cost
 | Area | Current state |
 |---|---|
 | **Storage** | SQLite is used for the prototype. A Postgres + pgvector schema exists in `migrations/` but has **not** been applied; the store interface allows swapping it in later. |
-| **OCR** | Not implemented. Scanned PDFs with no extractable text are rejected with a clear reason rather than silently producing empty documents. |
+| **OCR accuracy** | Scanned PDFs are now read via OCR, but OCR output is inherently lower-confidence than an embedded text layer. Accuracy has not been measured against a labelled set, and a poor scan can still fail — explicitly, with a readable reason. |
 | **Authentication** | Browser-local prototype auth only. The admin API endpoints are **not** access-controlled — production hardening is required before any real deployment. |
 | **Threshold calibration** | `tau_min = 0.35` is an unvalidated starting value (`config/retrieval.yaml` records this as `uncalibrated`). It must be calibrated against an evaluation set before results are presented as validated. |
 | **Answer latency** | 15–25 s per question, since `gpt-5-mini` reasons before replying. |
