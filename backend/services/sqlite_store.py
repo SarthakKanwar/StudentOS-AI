@@ -177,6 +177,39 @@ class SqliteStore:
         self._conn.commit()
         return True
 
+    def get_document(self, document_id: str) -> dict | None:
+        row = self._conn.execute(
+            "select id, title, original_filename, status, page_count, error_message "
+            "from documents where id = ?",
+            (document_id,),
+        ).fetchone()
+        return dict(row) if row else None
+
+    def delete_document(self, document_id: str) -> bool:
+        """Remove one document and everything belonging to it.
+
+        chunks and chunk_embeddings both declare `on delete cascade`, and this
+        connection enables `pragma foreign_keys`, so a single delete removes the
+        chunks and their embeddings too. Deleting them by hand as well would
+        duplicate logic the schema already owns.
+        """
+        cursor = self._conn.execute("delete from documents where id = ?", (document_id,))
+        self._conn.commit()
+        return cursor.rowcount > 0
+
+    def count_chunks(self, document_id: str) -> int:
+        """Used by tests to prove the cascade actually fired."""
+        return self._conn.execute(
+            "select count(*) from chunks where document_id = ?", (document_id,)
+        ).fetchone()[0]
+
+    def count_embeddings(self, document_id: str) -> int:
+        return self._conn.execute(
+            "select count(*) from chunk_embeddings e "
+            "join chunks c on c.id = e.chunk_id where c.document_id = ?",
+            (document_id,),
+        ).fetchone()[0]
+
     def list_documents(self) -> list[dict]:
         rows = self._conn.execute(
             "select d.id, d.title, d.original_filename, d.status, d.page_count, "

@@ -1090,13 +1090,17 @@ button {
 
 /* Real uploads carry long unbroken filenames; without this they force the whole
    page to scroll horizontally. */
+/* display:block is explicit because these are spans inside the Sources link,
+   where the inline default would run the title and filename onto one line. */
 .doc-title {
+  display: block;
   font-family: var(--font-display);
   font-size: var(--text-base);
   overflow-wrap: anywhere;
 }
 
 .doc-file {
+  display: block;
   margin-top: 2px;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -1868,6 +1872,70 @@ button {
 .demo-account-cred,
 .history-q {
   display: block;
+}
+
+/* ───────────────────────────────────── delete confirmation ── */
+
+.dialog-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: var(--s5);
+  background: var(--overlay);
+  animation: enter var(--dur) var(--ease) both;
+}
+
+.dialog {
+  width: 100%;
+  max-width: 430px;
+  padding: var(--s6);
+  border: var(--hairline);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.dialog h3 {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 400;
+}
+
+.dialog-doc {
+  margin-top: var(--s3);
+  padding: 9px var(--s4);
+  border-left: 3px solid var(--ochre);
+  background: var(--surface-sunken);
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  overflow-wrap: anywhere;
+}
+
+.dialog-body {
+  margin-top: var(--s4);
+  font-size: var(--text-sm);
+  color: var(--ink-3);
+  line-height: var(--leading-normal);
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--s2);
+  margin-top: var(--s6);
+}
+
+/* Sources rows open the original PDF */
+.doc-link {
+  display: block;
+  color: inherit;
+}
+
+.doc-link:hover .doc-title {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 /* ───────────────────────────────────────────────── utilities ── */

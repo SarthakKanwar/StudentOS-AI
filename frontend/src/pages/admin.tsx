@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  adminFileUrl,
   approveDocument,
+  deleteDocument,
   listDocuments,
   revokeDocument,
   uploadDocument,
@@ -14,6 +16,7 @@ import {
   IconDocuments,
   IconFile,
   IconShield,
+  IconTrash,
   IconUpload,
 } from "../components/icons";
 import { navigate } from "../lib/router";
@@ -169,6 +172,24 @@ export function AdminDocuments() {
   const { documents, loading, error, refresh, setError } = useDocuments();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<DocumentRow | null>(null);
+
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    const target = pendingDelete;
+    setPendingDelete(null);
+    setBusyId(target.id);
+    setNotice("");
+    try {
+      await deleteDocument(target.id);
+      await refresh();
+      setNotice(`"${target.title}" was deleted, along with its file and indexed data.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "The document could not be deleted.");
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   async function act(id: string, action: "approve" | "revoke") {
     setBusyId(id);
@@ -278,6 +299,15 @@ export function AdminDocuments() {
                   </td>
                   <td>
                     <div className="row-actions">
+                      <a
+                        className="btn btn-ghost"
+                        href={adminFileUrl(doc.id)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Open the original PDF"
+                      >
+                        View
+                      </a>
                       {doc.status === "ready" && (
                         <button
                           type="button"
@@ -298,6 +328,16 @@ export function AdminDocuments() {
                           {busyId === doc.id ? "Working..." : "Revoke"}
                         </button>
                       )}
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        disabled={busyId === doc.id}
+                        onClick={() => setPendingDelete(doc)}
+                        aria-label={`Delete ${doc.title}`}
+                      >
+                        <IconTrash size={15} />
+                        Delete
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -306,6 +346,39 @@ export function AdminDocuments() {
           </table>
         )}
       </section>
+
+      {pendingDelete && (
+        <div
+          className="dialog-scrim"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-title"
+          onClick={() => setPendingDelete(null)}
+        >
+          <div className="dialog" onClick={(e) => e.stopPropagation()}>
+            <h3 id="delete-title">Delete this document?</h3>
+            <p className="dialog-doc">{pendingDelete.title}</p>
+            <p className="dialog-body">
+              This permanently removes the uploaded PDF and everything indexed from
+              it — its passages and embeddings. Students will no longer be answered
+              from it, and it cannot be viewed. This cannot be undone.
+            </p>
+            <div className="dialog-actions">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setPendingDelete(null)}
+              >
+                Cancel
+              </button>
+              <button type="button" className="btn btn-danger" onClick={() => void confirmDelete()}>
+                <IconTrash size={15} />
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Shell>
   );
 }

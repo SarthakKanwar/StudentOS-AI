@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { askQuestion, listDocuments, type ChatResponse, type DocumentRow } from "../api";
+import {
+  askQuestion,
+  listDocuments,
+  studentFileUrl,
+  type ChatResponse,
+  type DocumentRow,
+} from "../api";
 import { AnswerPanel } from "../components/AnswerPanel";
 import { Shell } from "../components/Shell";
 import { StatusChip } from "../components/StatusChip";
@@ -380,8 +386,16 @@ export function StudentSources() {
               {approved.map((doc) => (
                 <tr key={doc.id}>
                   <td>
-                    <div className="doc-title">{doc.title}</div>
-                    <div className="doc-file">{doc.original_filename}</div>
+                    <a
+                      className="doc-link"
+                      href={studentFileUrl(doc.id)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Open the original PDF"
+                    >
+                      <span className="doc-title">{doc.title}</span>
+                      <span className="doc-file">{doc.original_filename}</span>
+                    </a>
                   </td>
                   <td className="num" data-label="Pages">{doc.page_count}</td>
                   <td className="num" data-label="Passages">{doc.chunk_count}</td>

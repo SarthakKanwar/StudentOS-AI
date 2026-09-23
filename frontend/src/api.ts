@@ -55,6 +55,22 @@ export async function revokeDocument(documentId: string) {
   return unwrap(await fetch(`/api/admin/revoke/${documentId}`, { method: "POST" }));
 }
 
+export async function deleteDocument(documentId: string) {
+  return unwrap(
+    await fetch(`/api/admin/documents/${documentId}`, { method: "DELETE" }),
+  );
+}
+
+/* Admin sees the original at any status; students only through the
+   approved-only route, which the backend enforces. */
+export function adminFileUrl(documentId: string): string {
+  return `/api/admin/documents/${encodeURIComponent(documentId)}/file`;
+}
+
+export function studentFileUrl(documentId: string): string {
+  return `/api/documents/${encodeURIComponent(documentId)}/file`;
+}
+
 export async function askQuestion(question: string): Promise<ChatResponse> {
   return unwrap<ChatResponse>(
     await fetch("/api/chat", {

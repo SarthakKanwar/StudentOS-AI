@@ -17,6 +17,13 @@ def get_shared_store():
 
 
 @lru_cache(maxsize=1)
+def get_upload_store():
+    from .file_storage import UploadStore
+
+    return UploadStore()
+
+
+@lru_cache(maxsize=1)
 def get_embedder():
     from backend.foundry.embeddings import EmbeddingClient
 
@@ -33,5 +40,6 @@ def get_chat_client():
 def reset() -> None:
     """Used by tests to drop cached singletons."""
     get_shared_store.cache_clear()
+    get_upload_store.cache_clear()
     get_embedder.cache_clear()
     get_chat_client.cache_clear()
