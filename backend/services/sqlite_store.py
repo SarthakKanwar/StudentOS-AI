@@ -9,13 +9,18 @@ is fast enough, and it removes the pgvector dependency from the local path.
 from __future__ import annotations
 
 import json
+import logging
 import math
+import re
 import sqlite3
 import uuid
 from pathlib import Path
 
+from backend.config import get_pipeline_config
 from backend.ingestion.models import Chunk, Document
 from .store import SearchResult
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_DB_PATH = Path(__file__).resolve().parents[2] / "data" / "studentos.db"
 
@@ -56,7 +61,62 @@ create index if not exists chunks_document_id_idx on chunks (document_id);
 create index if not exists documents_status_idx on documents (status);
 """
 
+# Keyword index for hybrid retrieval. Kept in a separate script because FTS5 is
+# a compile-time option: if this build lacks it, retrieval falls back to
+# dense-only rather than the store failing to open.
+#
+# Triggers keep the index in step with `chunks`, including on the cascade from
+# deleting a document — SQLite fires delete triggers for cascaded rows, so
+# deletion needs no extra bookkeeping.
+FTS_SCHEMA = """
+create virtual table if not exists chunks_fts using fts5(chunk_id unindexed, content);
+
+create trigger if not exists chunks_fts_after_insert after insert on chunks begin
+    insert into chunks_fts (chunk_id, content) values (new.id, new.content);
+end;
+
+create trigger if not exists chunks_fts_after_delete after delete on chunks begin
+    delete from chunks_fts where chunk_id = old.id;
+end;
+
+create trigger if not exists chunks_fts_after_update after update on chunks begin
+    delete from chunks_fts where chunk_id = old.id;
+    insert into chunks_fts (chunk_id, content) values (new.id, new.content);
+end;
+"""
+
 VALID_STATUSES = ("uploaded", "processing", "ready", "approved", "failed")
+
+
+def build_fts_query(text: str) -> str | None:
+    """Turn a natural-language question into a safe FTS5 MATCH expression.
+
+    Only alphanumeric runs survive, and each is wrapped in double quotes so it
+    is matched as a literal. FTS5 operators (`OR`, `NEAR`, `*`, `-`, `^`, `:`)
+    and quotes therefore cannot reach the parser from user input, which is what
+    keeps a question like `what is 24CAI0201's "duration"?` from being read as
+    syntax. Returns None when nothing usable remains.
+    """
+    tokens = re.findall(r"[A-Za-z0-9]+", text or "")
+    # Single letters carry no signal and match almost everything.
+    tokens = [t for t in tokens if len(t) > 1]
+    if not tokens:
+        return None
+    return " OR ".join(f'"{token}"' for token in tokens)
+
+
+def reciprocal_rank_fusion(rankings: list[list[str]], k: int) -> dict[str, float]:
+    """Standard RRF: each list contributes 1 / (k + rank) to every id it holds.
+
+    Rank-based rather than score-based, so a cosine similarity and a BM25 score
+    — which are on completely different scales — can be combined without any
+    normalisation step that would need its own calibration.
+    """
+    fused: dict[str, float] = {}
+    for ranking in rankings:
+        for position, chunk_id in enumerate(ranking, start=1):
+            fused[chunk_id] = fused.get(chunk_id, 0.0) + 1.0 / (k + position)
+    return fused
 
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:
@@ -78,6 +138,32 @@ class SqliteStore:
         self._conn.execute("pragma foreign_keys = on")
         self._conn.executescript(SCHEMA)
         self._conn.commit()
+        self.fts_available = self._ensure_fts()
+
+    def _ensure_fts(self) -> bool:
+        """Create the keyword index, and backfill it for pre-existing databases.
+
+        Returns False when this SQLite build has no FTS5, in which case search
+        stays dense-only and everything else behaves exactly as before.
+        """
+        try:
+            self._conn.executescript(FTS_SCHEMA)
+        except sqlite3.OperationalError as exc:
+            logger.warning("FTS5 unavailable, keyword retrieval disabled: %s", exc)
+            return False
+
+        # A database written before this index existed has chunks but no rows
+        # here; the triggers only cover writes from now on.
+        indexed = self._conn.execute("select count(*) from chunks_fts").fetchone()[0]
+        total = self._conn.execute("select count(*) from chunks").fetchone()[0]
+        if indexed != total:
+            logger.info("backfilling keyword index: %d chunk(s)", total)
+            self._conn.execute("delete from chunks_fts")
+            self._conn.execute(
+                "insert into chunks_fts (chunk_id, content) select id, content from chunks"
+            )
+        self._conn.commit()
+        return True
 
     # ------------------------------------------------------------- ingestion
 
@@ -221,8 +307,56 @@ class SqliteStore:
 
     # ------------------------------------------------------------- retrieval
 
-    def search(self, query_vector: list[float], top_k: int) -> list[SearchResult]:
-        """Cosine similarity over chunks of APPROVED documents only."""
+    def keyword_search(self, query_text: str, limit: int) -> list[str]:
+        """Chunk ids matching the question's literal terms, best first.
+
+        Restricted to approved documents by the same join the dense path uses,
+        so the keyword route cannot become a way to reach unapproved content.
+        Returns ids only; scoring and metadata stay with the dense pass, which
+        already computes cosine for every approved chunk.
+        """
+        if not self.fts_available:
+            return []
+
+        match = build_fts_query(query_text)
+        if match is None:
+            return []
+
+        try:
+            rows = self._conn.execute(
+                "select f.chunk_id from chunks_fts f "
+                "join chunks c on c.id = f.chunk_id "
+                "join documents d on d.id = c.document_id "
+                "where chunks_fts match ? and d.status = 'approved' "
+                "order by bm25(chunks_fts) limit ?",
+                (match, limit),
+            ).fetchall()
+        except sqlite3.OperationalError as exc:
+            # A malformed MATCH should degrade to dense-only, never 500.
+            logger.warning("keyword search failed, using dense ranking only: %s", exc)
+            return []
+
+        return [row["chunk_id"] for row in rows]
+
+    def search(
+        self,
+        query_vector: list[float],
+        top_k: int,
+        query_text: str | None = None,
+    ) -> list[SearchResult]:
+        """Retrieve the best chunks from APPROVED documents only.
+
+        Dense cosine ranking alone under-weights rare literal tokens — course
+        codes, regulation numbers, table values — because a chunk holding a
+        table of many subjects embeds as a blur of all of them, while a long
+        document *about* one subject matches it strongly on every chunk. When
+        `query_text` is given and hybrid retrieval is on, a keyword ranking is
+        fused with the dense one by Reciprocal Rank Fusion to fix the ordering.
+
+        `SearchResult.score` stays the true cosine similarity in both modes.
+        Fusion decides order only, so Gate 1 keeps thresholding on a real
+        similarity value rather than on a rank-derived number.
+        """
         rows = self._conn.execute(
             "select c.id, c.content, c.document_id, c.page_start, c.page_end, "
             "d.title as document_title, e.embedding "
@@ -244,8 +378,31 @@ class SqliteStore:
             )
             for row in rows
         ]
-        scored.sort(key=lambda r: r.score, reverse=True)
-        return scored[:top_k]
+        # Deterministic: cosine descending, chunk_id as a stable tie-break.
+        scored.sort(key=lambda r: (-r.score, r.chunk_id))
+
+        config = get_pipeline_config().retrieval
+        if not (config.hybrid_enabled and query_text and self.fts_available):
+            return scored[:top_k]
+
+        keyword_ranking = self.keyword_search(query_text, config.keyword_candidates)
+        if not keyword_ranking:
+            return scored[:top_k]
+
+        by_id = {result.chunk_id: result for result in scored}
+        # Both lists are fused at the same depth. Feeding the whole corpus as
+        # the dense list would give every chunk a dense contribution and dilute
+        # the keyword signal, which is the half that finds literal identifiers.
+        dense_ranking = [result.chunk_id for result in scored[: config.keyword_candidates]]
+        # A keyword hit whose embedding is missing cannot be scored or cited.
+        keyword_ranking = [cid for cid in keyword_ranking if cid in by_id]
+
+        fused = reciprocal_rank_fusion([dense_ranking, keyword_ranking], config.rrf_k)
+
+        # dict keys are unique, so a chunk appearing in both rankings is fused
+        # once and cannot be duplicated in the output.
+        order = sorted(fused, key=lambda cid: (-fused[cid], cid))
+        return [by_id[cid] for cid in order[:top_k]]
 
     def is_chunk_approved(self, chunk_id: str) -> bool:
         """Gate 3 re-checks approval at validation time, so revocation is instant."""

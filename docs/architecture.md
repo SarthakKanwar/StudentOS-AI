@@ -113,6 +113,26 @@ It is the sole trust boundary. Nothing downstream of it is trusted; nothing upst
 
 It is a pure function of (question, current KB). It makes no judgement about sufficiency — that is the validator's job. Keeping these separate means retrieval quality and grounding strictness can be tuned independently.
 
+#### Why retrieval is hybrid, not dense-only
+
+Dense embeddings under-weight rare literal tokens — course codes, regulation numbers, exact values in a table. A chunk holding a table of ten subjects embeds as a blur of all ten, so a question naming one of them matches it weakly, while a long document *about* that subject matches strongly on every one of its chunks.
+
+This was not hypothetical. For *"What is the duration of the Database Management Systems ETE?"*, the chunk containing the answer ranked **8th** under dense-only retrieval, behind seven chunks of a course-plan circular that mention the subject but not its exam duration. With `max_context_chunks = 5`, the answer was discarded before the model saw it, and Gate 2 correctly reported the evidence insufficient. Across a set of similar questions the answer chunk ranked as low as 24th, so raising `top_k` would not have fixed it.
+
+The fix runs a keyword ranking beside the dense one and fuses them:
+
+- **Keyword ranking** — SQLite FTS5 over chunk text, ordered by BM25. The question is reduced to alphanumeric runs, each quoted as a literal, so FTS5 operators cannot reach the parser from user input.
+- **Fusion** — Reciprocal Rank Fusion, `score = Σ 1 / (k + rank)`. Rank-based, so a cosine similarity and a BM25 score — which are on unrelated scales — combine without a normalisation step that would need its own calibration. Both lists are fused at equal depth; feeding the whole corpus as the dense list would give every chunk a dense contribution and drown the keyword signal.
+
+Two invariants make this safe to add beneath an unchanged grounding layer:
+
+- **`SearchResult.score` remains the true cosine similarity.** Fusion decides order only. Gate 1 therefore still thresholds on a real similarity value, never on a rank-derived number.
+- **Gate 1 reads the maximum cosine across the retrieved set**, not the first result. Under fusion the best-ordered chunk is not necessarily the most similar one. The question Gate 1 asks is unchanged — *is any retrieved passage similar enough* — and under dense-only retrieval, where the list is sorted by score, the two are identical.
+
+**Approved-only filtering applies to both paths.** The keyword query joins `chunks_fts → chunks → documents` and filters `status = 'approved'`, the same condition the dense path uses. Neither route can reach an unapproved, revoked or failed document, and Gate 3 still re-checks approval when it verifies citations.
+
+`rrf_k` is **not calibrated** — see `config/retrieval.yaml` for why the usual default of 60 is wrong at this corpus size, and revisit it alongside `tau_min`.
+
 ### 4.4 Foundry Client
 
 **Owns:** all communication with the runtime model layer.

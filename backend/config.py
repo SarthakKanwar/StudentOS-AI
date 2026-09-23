@@ -47,6 +47,13 @@ class RetrievalConfig(BaseModel):
     top_k: int
     max_context_chunks: int
 
+    # Hybrid retrieval. Dense cosine alone under-ranks rare literal tokens
+    # (course codes, regulation numbers, table values), so a keyword ranking is
+    # fused with it. See config/retrieval.yaml for why rrf_k is not the usual 60.
+    hybrid_enabled: bool = True
+    rrf_k: int = 5
+    keyword_candidates: int = 25
+
     @model_validator(mode="after")
     def context_fits_inside_retrieved_set(self) -> RetrievalConfig:
         if self.max_context_chunks > self.top_k:

@@ -27,6 +27,31 @@ retrieval:
   top_k: 8
   max_context_chunks: 5
 
+  # Hybrid retrieval: dense cosine fused with SQLite FTS5 keyword ranking.
+  #
+  # Dense embeddings under-weight rare literal tokens — course codes, regulation
+  # numbers, exact values in tables. A chunk holding a table of ten subjects
+  # embeds as a blur of all ten, so it loses to a long document *about* one of
+  # them. Keyword matching ranks those literals first; fusing the two orderings
+  # fixes the ranking without touching thresholds or any gate.
+  #
+  # Fusion affects ORDER ONLY. SearchResult.score stays the true cosine value,
+  # so Gate 1 still thresholds on a real similarity.
+  hybrid_enabled: true
+  keyword_candidates: 25 # depth at which BOTH rankings are fused
+
+  # RRF constant. The usual default is 60, which was tuned for TREC runs whose
+  # candidate lists hold thousands of documents. At that scale k=60 still leaves
+  # useful separation between ranks; over a corpus of tens of chunks it does
+  # not — ranks 1 and 25 end up within 1.65x of each other, so fusion degrades
+  # into "appears in both lists" and ignores how well each ranked. A smaller k
+  # restores that separation at this corpus size.
+  #
+  # NOT calibrated. Chosen by measuring rank movement on a handful of real
+  # questions, which is a sanity check rather than an evaluation. Revisit
+  # alongside tau_min when the calibration set exists.
+  rrf_k: 5
+
 # ── Grounding thresholds (Gate 1) ─────────────────────────────────────
 # tau_min:     minimum cosine similarity for the single best chunk.
 #              Below this, the system returns "not found" WITHOUT calling

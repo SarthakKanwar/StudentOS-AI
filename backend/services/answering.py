@@ -68,8 +68,14 @@ def gate1_retrieval_sufficient(results, tau_min: float) -> bool:
 
     Runs before any model call, so an unanswerable question costs nothing and
     cannot produce a hallucination.
+
+    Reads the maximum cosine rather than the first result, because hybrid
+    retrieval orders by fused rank: the best-ordered chunk is not necessarily
+    the most cosine-similar one. The question being asked is unchanged — "is
+    any retrieved passage similar enough" — and under dense-only retrieval,
+    where the list is sorted by score, the two are identical.
     """
-    return bool(results) and results[0].score >= tau_min
+    return bool(results) and max(result.score for result in results) >= tau_min
 
 
 def gate3_verify_citations(citations: list[str], results, store) -> list[str]:
@@ -111,8 +117,9 @@ def answer_question(question: str, store, embedder, chat_client) -> AnswerRespon
         return _not_found("empty_question")
 
     query_vector = embedder.embed_texts([question])[0]
-    results = store.search(query_vector, top_k)
-    top_score = results[0].score if results else 0.0
+    # The question text is passed for the keyword half of hybrid retrieval.
+    results = store.search(query_vector, top_k, query_text=question)
+    top_score = max((result.score for result in results), default=0.0)
 
     # ---- GATE 1 -------------------------------------------------------------
     if not gate1_retrieval_sufficient(results, tau_min):
