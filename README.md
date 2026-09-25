@@ -2,7 +2,7 @@
 
 **AI-powered university student assistant that answers only from approved university documents — with page-level citations, and an explicit "not found" when the evidence isn't there.**
 
-[![Tests](https://img.shields.io/badge/tests-120%20passing-1b4d3e)](#testing)
+[![Tests](https://img.shields.io/badge/tests-209%20passing-1b4d3e)](#testing)
 [![Backend](https://img.shields.io/badge/backend-FastAPI-009688)](#technology-stack)
 [![Frontend](https://img.shields.io/badge/frontend-React%20%2B%20TypeScript-3178c6)](#technology-stack)
 [![AI](https://img.shields.io/badge/AI-Azure%20AI%20Foundry-0078d4)](#technology-stack)
@@ -332,7 +332,7 @@ python scripts/demo.py
 
 | Check | Command | Status |
 |---|---|---|
-| Backend test suite | `pytest tests/ -q` | **120 passed** |
+| Backend test suite | `pytest tests/ -q` | **209 passed** |
 | Frontend TypeScript | `npx tsc -b` | **Passed** |
 | Frontend production build | `npm run build` | **Passed** |
 
